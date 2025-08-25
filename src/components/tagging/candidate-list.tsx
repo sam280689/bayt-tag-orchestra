@@ -140,7 +140,7 @@ export function CandidateList() {
       candidate.position.toLowerCase().includes(searchQuery.toLowerCase()) ||
       candidate.location.toLowerCase().includes(searchQuery.toLowerCase())
     
-    const matchesTagFilter = !filterByTag || candidate.tags.includes(filterByTag)
+    const matchesTagFilter = !filterByTag || filterByTag === "all" || candidate.tags.includes(filterByTag)
     
     return matchesSearch && matchesTagFilter
   })
@@ -182,7 +182,7 @@ export function CandidateList() {
                 <SelectValue placeholder="Filter by tag" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All candidates</SelectItem>
+                <SelectItem value="all">All candidates</SelectItem>
                 {allTags.map(tag => (
                   <SelectItem key={tag} value={tag}>{tag}</SelectItem>
                 ))}
