@@ -3,6 +3,7 @@ import { useLocation } from "react-router-dom"
 import { MainNav } from "@/components/navigation/main-nav"
 import { CandidateList } from "@/components/tagging/candidate-list"
 import { AnalyticsDashboard } from "@/components/tagging/analytics-dashboard"
+import { TagManagement } from "@/components/tagging/tag-management"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -38,6 +39,8 @@ const Index = () => {
         return <CandidateList />
       case "/analytics":
         return <AnalyticsDashboard />
+      case "/tags":
+        return <TagManagement />
       default:
         return (
           <div className="space-y-8">
