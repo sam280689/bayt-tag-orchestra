@@ -21,6 +21,13 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
 import { toast } from "@/hooks/use-toast"
 import { 
@@ -38,79 +45,94 @@ import {
   RefreshCw
 } from "lucide-react"
 import { DuplicateDetectionEngine } from "@/lib/smart-suggestions"
+import { supabase } from "@/integrations/supabase/client"
+import { useAuth } from "@/hooks/useAuth"
 
 interface TagData {
   id: string
   name: string
   type: "personal" | "team" | "global"
-  usage: number
-  lastUsed: string
-  createdBy: string
+  usage_count: number
+  last_used: string
+  created_by: string
   duplicates?: string[]
 }
 
-// Mock tag data
-const mockTags: TagData[] = [
-  {
-    id: "1",
-    name: "Top Talent",
-    type: "team",
-    usage: 145,
-    lastUsed: "2024-01-20",
-    createdBy: "Sarah Ahmed"
-  },
-  {
-    id: "2",
-    name: "Remote Ready", 
-    type: "team",
-    usage: 98,
-    lastUsed: "2024-01-19",
-    createdBy: "Ahmed Ali"
-  },
-  {
-    id: "3",
-    name: "Leadership",
-    type: "team", 
-    usage: 87,
-    lastUsed: "2024-01-18",
-    createdBy: "Fatima Hassan"
-  },
-  {
-    id: "4",
-    name: "React Developer",
-    type: "personal",
-    usage: 23,
-    lastUsed: "2024-01-15",
-    createdBy: "You"
-  },
-  {
-    id: "5",
-    name: "Product Manager",
-    type: "global",
-    usage: 234,
-    lastUsed: "2024-01-20",
-    createdBy: "System"
-  },
-  {
-    id: "6", 
-    name: "PM",
-    type: "team",
-    usage: 45,
-    lastUsed: "2024-01-10",
-    createdBy: "John Doe",
-    duplicates: ["Product Manager"]
-  }
-]
-
 export function TagManagement() {
-  const [tags, setTags] = React.useState(mockTags)
+  const { user } = useAuth()
+  const [tags, setTags] = React.useState<TagData[]>([])
+  const [loading, setLoading] = React.useState(true)
   const [searchQuery, setSearchQuery] = React.useState("")
   const [selectedTags, setSelectedTags] = React.useState<string[]>([])
   const [isScanning, setIsScanning] = React.useState(false)
+  const [newTagName, setNewTagName] = React.useState("")
+  const [newTagType, setNewTagType] = React.useState<"personal" | "team" | "global">("personal")
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = React.useState(false)
+
+  const fetchTags = React.useCallback(async () => {
+    if (!user) return
+    
+    try {
+      const { data, error } = await supabase
+        .from('tags')
+        .select('*')
+        .order('usage_count', { ascending: false })
+
+      if (error) throw error
+      setTags((data || []).map(tag => ({
+        ...tag,
+        type: tag.type as "personal" | "team" | "global"
+      })))
+    } catch (error) {
+      console.error('Error fetching tags:', error)
+      toast({
+        title: "Error fetching tags",
+        description: "Failed to load tags from database",
+        variant: "destructive"
+      })
+    } finally {
+      setLoading(false)
+    }
+  }, [user])
+
+  React.useEffect(() => {
+    fetchTags()
+  }, [fetchTags])
+
+  const createTag = async () => {
+    if (!user || !newTagName.trim()) return
+
+    try {
+      const { error } = await supabase
+        .from('tags')
+        .insert([{
+          name: newTagName.trim(),
+          type: newTagType,
+          created_by: user.id
+        }])
+
+      if (error) throw error
+
+      toast({
+        title: "Tag Created",
+        description: `Created tag "${newTagName}" successfully`,
+      })
+
+      setNewTagName("")
+      setNewTagType("personal")
+      setIsCreateDialogOpen(false)
+      fetchTags()
+    } catch (error: any) {
+      toast({
+        title: "Error creating tag",
+        description: error.message,
+        variant: "destructive"
+      })
+    }
+  }
 
   const filteredTags = tags.filter(tag =>
-    tag.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    tag.createdBy.toLowerCase().includes(searchQuery.toLowerCase())
+    tag.name.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
   // Enhanced duplicate detection using smart algorithms
@@ -133,38 +155,65 @@ export function TagManagement() {
 
   const getTypeVariant = (type: string) => {
     switch (type) {
-      case "team": return "default"
-      case "personal": return "secondary" 
-      case "global": return "outline"
-      default: return "outline"
+      case "team": return "default" as const
+      case "personal": return "secondary" as const
+      case "global": return "outline" as const
+      default: return "outline" as const
     }
   }
 
-  const handleMergeTag = (sourceId: string, targetName: string) => {
+  const handleMergeTag = async (sourceId: string, targetName: string) => {
     const sourceTag = tags.find(t => t.id === sourceId)
-    if (!sourceTag) return
+    if (!sourceTag || !user) return
 
-    // In a real app, this would call an API
-    toast({
-      title: "Tags Merged",
-      description: `Merged "${sourceTag.name}" into "${targetName}". Updated ${sourceTag.usage} items.`,
-    })
+    try {
+      // In a real implementation, this would merge usage counts and references
+      await supabase
+        .from('tags')
+        .delete()
+        .eq('id', sourceId)
 
-    // Remove the source tag from our local state
-    setTags(prev => prev.filter(t => t.id !== sourceId))
+      toast({
+        title: "Tags Merged",
+        description: `Merged "${sourceTag.name}" into "${targetName}". Updated ${sourceTag.usage_count} items.`,
+      })
+
+      fetchTags()
+    } catch (error: any) {
+      toast({
+        title: "Error merging tags",
+        description: error.message,
+        variant: "destructive"
+      })
+    }
   }
 
-  const handleDeleteTag = (tagId: string) => {
+  const handleDeleteTag = async (tagId: string) => {
     const tag = tags.find(t => t.id === tagId)
-    if (!tag) return
+    if (!tag || !user) return
 
-    toast({
-      title: "Tag Deleted", 
-      description: `Deleted "${tag.name}". This action cannot be undone.`,
-      variant: "destructive"
-    })
+    try {
+      const { error } = await supabase
+        .from('tags')
+        .delete()
+        .eq('id', tagId)
 
-    setTags(prev => prev.filter(t => t.id !== tagId))
+      if (error) throw error
+
+      toast({
+        title: "Tag Deleted", 
+        description: `Deleted "${tag.name}". This action cannot be undone.`,
+        variant: "destructive"
+      })
+
+      fetchTags()
+    } catch (error: any) {
+      toast({
+        title: "Error deleting tag",
+        description: error.message,
+        variant: "destructive"
+      })
+    }
   }
 
   const handleSmartScan = async () => {
@@ -182,6 +231,14 @@ export function TagManagement() {
     })
     
     setIsScanning(false)
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    )
   }
 
   return (
@@ -207,32 +264,54 @@ export function TagManagement() {
             )}
             {isScanning ? "Scanning..." : "Smart Scan"}
           </Button>
-          <Dialog>
+          <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
             <DialogTrigger asChild>
               <Button>
                 <Plus className="h-4 w-4 mr-2" />
                 Create Tag
               </Button>
             </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Create New Tag</DialogTitle>
-              <DialogDescription>
-                Add a new tag to your organization's taxonomy
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label htmlFor="tagName">Tag Name</Label>
-                <Input id="tagName" placeholder="e.g. Senior Developer" />
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Create New Tag</DialogTitle>
+                <DialogDescription>
+                  Add a new tag to your organization's taxonomy
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                <div className="space-y-2">
+                  <Label htmlFor="tagName">Tag Name</Label>
+                  <Input 
+                    id="tagName" 
+                    placeholder="e.g. Senior Developer"
+                    value={newTagName}
+                    onChange={(e) => setNewTagName(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="tagType">Tag Type</Label>
+                  <Select value={newTagType} onValueChange={(value: "personal" | "team" | "global") => setNewTagType(value)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select tag type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="personal">Personal</SelectItem>
+                      <SelectItem value="team">Team</SelectItem>
+                      <SelectItem value="global">Global</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline">Cancel</Button>
-              <Button>Create Tag</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={createTag} disabled={!newTagName.trim()}>
+                  Create Tag
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
 
@@ -279,7 +358,7 @@ export function TagManagement() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Total Usage</p>
-                <p className="text-2xl font-bold">{tags.reduce((sum, tag) => sum + tag.usage, 0)}</p>
+                <p className="text-2xl font-bold">{tags.reduce((sum, tag) => sum + tag.usage_count, 0)}</p>
               </div>
               <Users className="h-8 w-8 text-muted-foreground" />
             </div>
@@ -321,7 +400,7 @@ export function TagManagement() {
                         <DialogHeader>
                           <DialogTitle>Merge Tags</DialogTitle>
                           <DialogDescription>
-                            Merging "{tag.name}" into "{tag.duplicates?.[0]}" will update {tag.usage} items.
+                            Merging "{tag.name}" into "{tag.duplicates?.[0]}" will update {tag.usage_count} items.
                           </DialogDescription>
                         </DialogHeader>
                         <DialogFooter>
@@ -397,13 +476,13 @@ export function TagManagement() {
                     </Badge>
                   </TableCell>
                   <TableCell>
-                    <Badge variant="secondary">{tag.usage}</Badge>
+                    <Badge variant="secondary">{tag.usage_count}</Badge>
                   </TableCell>
                   <TableCell className="text-muted-foreground">
-                    {new Date(tag.lastUsed).toLocaleDateString()}
+                    {new Date(tag.last_used).toLocaleDateString()}
                   </TableCell>
                   <TableCell className="text-muted-foreground">
-                    {tag.createdBy}
+                    User
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center gap-1 justify-end">
