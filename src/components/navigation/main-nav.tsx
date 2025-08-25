@@ -10,7 +10,10 @@ import {
   Bell,
   Search,
   Menu,
-  Tags
+  Tags,
+  Workflow,
+  Brain,
+  TrendingUp
 } from "lucide-react"
 import {
   DropdownMenu,
@@ -35,9 +38,24 @@ const navigation = [
     icon: BarChart3,
   },
   {
+    name: "Advanced Analytics",
+    href: "/analytics/advanced",
+    icon: TrendingUp,
+  },
+  {
     name: "Tag Management",
     href: "/tags",
     icon: Tags,
+  },
+  {
+    name: "Workflows",
+    href: "/workflows",
+    icon: Workflow,
+  },
+  {
+    name: "AI Assistant",
+    href: "/ai-assistant",
+    icon: Brain,
   },
   {
     name: "Team",
