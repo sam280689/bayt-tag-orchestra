@@ -1,0 +1,545 @@
+import * as React from "react"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import { Input } from "@/components/ui/input"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { 
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { Label } from "@/components/ui/label"
+import { Switch } from "@/components/ui/switch"
+import { Separator } from "@/components/ui/separator"
+import { toast } from "@/hooks/use-toast"
+import { 
+  Users, 
+  Plus, 
+  Settings, 
+  Shield, 
+  UserCheck,
+  UserX,
+  Crown,
+  Edit,
+  Trash2,
+  Search,
+  Filter
+} from "lucide-react"
+
+interface TeamMember {
+  id: string
+  name: string
+  email: string
+  role: "admin" | "editor" | "viewer"
+  avatar?: string
+  lastActive: string
+  permissions: {
+    canCreateTags: boolean
+    canEditTags: boolean
+    canDeleteTags: boolean
+    canManageTeam: boolean
+    canViewAnalytics: boolean
+  }
+  tagStats: {
+    created: number
+    used: number
+    shared: number
+  }
+}
+
+interface TeamSettings {
+  requireApproval: boolean
+  allowPublicTags: boolean
+  autoSuggestSimilar: boolean
+  enforceNamingConvention: boolean
+  maxTagsPerUser: number
+}
+
+// Mock team data
+const mockTeamMembers: TeamMember[] = [
+  {
+    id: "1",
+    name: "Sarah Ahmed",
+    email: "sarah.ahmed@company.com",
+    role: "admin",
+    avatar: "/avatars/sarah.jpg",
+    lastActive: "2024-01-20T10:30:00Z",
+    permissions: {
+      canCreateTags: true,
+      canEditTags: true,
+      canDeleteTags: true,
+      canManageTeam: true,
+      canViewAnalytics: true,
+    },
+    tagStats: {
+      created: 45,
+      used: 234,
+      shared: 12
+    }
+  },
+  {
+    id: "2", 
+    name: "Ahmed Ali",
+    email: "ahmed.ali@company.com",
+    role: "editor",
+    lastActive: "2024-01-19T15:45:00Z",
+    permissions: {
+      canCreateTags: true,
+      canEditTags: true,
+      canDeleteTags: false,
+      canManageTeam: false,
+      canViewAnalytics: true,
+    },
+    tagStats: {
+      created: 23,
+      used: 156,
+      shared: 8
+    }
+  },
+  {
+    id: "3",
+    name: "Fatima Hassan",
+    email: "fatima.hassan@company.com", 
+    role: "editor",
+    lastActive: "2024-01-18T09:15:00Z",
+    permissions: {
+      canCreateTags: true,
+      canEditTags: true,
+      canDeleteTags: false,
+      canManageTeam: false,
+      canViewAnalytics: true,
+    },
+    tagStats: {
+      created: 31,
+      used: 189,
+      shared: 15
+    }
+  },
+  {
+    id: "4",
+    name: "John Doe",
+    email: "john.doe@company.com",
+    role: "viewer",
+    lastActive: "2024-01-15T14:20:00Z",
+    permissions: {
+      canCreateTags: false,
+      canEditTags: false,
+      canDeleteTags: false,
+      canManageTeam: false,
+      canViewAnalytics: false,
+    },
+    tagStats: {
+      created: 0,
+      used: 67,
+      shared: 0
+    }
+  }
+]
+
+const mockTeamSettings: TeamSettings = {
+  requireApproval: true,
+  allowPublicTags: false,
+  autoSuggestSimilar: true,
+  enforceNamingConvention: false,
+  maxTagsPerUser: 50
+}
+
+export function TeamManagement() {
+  const [members, setMembers] = React.useState(mockTeamMembers)
+  const [settings, setSettings] = React.useState(mockTeamSettings)
+  const [searchQuery, setSearchQuery] = React.useState("")
+  const [roleFilter, setRoleFilter] = React.useState<string>("all")
+
+  const filteredMembers = members.filter(member => {
+    const matchesSearch = member.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         member.email.toLowerCase().includes(searchQuery.toLowerCase())
+    const matchesRole = roleFilter === "all" || member.role === roleFilter
+    return matchesSearch && matchesRole
+  })
+
+  const getRoleIcon = (role: string) => {
+    switch (role) {
+      case "admin": return <Crown className="h-4 w-4 text-yellow-500" />
+      case "editor": return <Edit className="h-4 w-4 text-blue-500" />
+      case "viewer": return <UserCheck className="h-4 w-4 text-green-500" />
+      default: return <Users className="h-4 w-4" />
+    }
+  }
+
+  const getRoleBadgeVariant = (role: string) => {
+    switch (role) {
+      case "admin": return "default"
+      case "editor": return "secondary"
+      case "viewer": return "outline"
+      default: return "outline"
+    }
+  }
+
+  const handleRoleChange = (memberId: string, newRole: "admin" | "editor" | "viewer") => {
+    const member = members.find(m => m.id === memberId)
+    if (!member) return
+
+    // Update permissions based on role
+    const permissions = {
+      admin: {
+        canCreateTags: true,
+        canEditTags: true,
+        canDeleteTags: true,
+        canManageTeam: true,
+        canViewAnalytics: true,
+      },
+      editor: {
+        canCreateTags: true,
+        canEditTags: true,
+        canDeleteTags: false,
+        canManageTeam: false,
+        canViewAnalytics: true,
+      },
+      viewer: {
+        canCreateTags: false,
+        canEditTags: false,
+        canDeleteTags: false,
+        canManageTeam: false,
+        canViewAnalytics: false,
+      }
+    }
+
+    setMembers(prev => prev.map(m => 
+      m.id === memberId 
+        ? { ...m, role: newRole, permissions: permissions[newRole] }
+        : m
+    ))
+
+    toast({
+      title: "Role Updated",
+      description: `${member.name}'s role has been changed to ${newRole}`,
+    })
+  }
+
+  const handleRemoveMember = (memberId: string) => {
+    const member = members.find(m => m.id === memberId)
+    if (!member) return
+
+    setMembers(prev => prev.filter(m => m.id !== memberId))
+    toast({
+      title: "Member Removed",
+      description: `${member.name} has been removed from the team`,
+      variant: "destructive"
+    })
+  }
+
+  const formatLastActive = (timestamp: string) => {
+    const date = new Date(timestamp)
+    const now = new Date()
+    const diffInHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60))
+    
+    if (diffInHours < 1) return "Active now"
+    if (diffInHours < 24) return `${diffInHours}h ago`
+    const diffInDays = Math.floor(diffInHours / 24)
+    return `${diffInDays}d ago`
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">Team Management</h1>
+          <p className="text-muted-foreground">
+            Manage team members, roles, and permissions
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button variant="outline">
+                <Settings className="h-4 w-4 mr-2" />
+                Settings
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle>Team Settings</DialogTitle>
+                <DialogDescription>
+                  Configure team-wide tag management settings
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-6 py-4">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label className="text-sm font-medium">Require Approval</Label>
+                    <p className="text-xs text-muted-foreground">New tags need admin approval</p>
+                  </div>
+                  <Switch 
+                    checked={settings.requireApproval}
+                    onCheckedChange={(checked) => 
+                      setSettings(prev => ({...prev, requireApproval: checked}))
+                    }
+                  />
+                </div>
+                <Separator />
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label className="text-sm font-medium">Allow Public Tags</Label>
+                    <p className="text-xs text-muted-foreground">Members can create public tags</p>
+                  </div>
+                  <Switch 
+                    checked={settings.allowPublicTags}
+                    onCheckedChange={(checked) => 
+                      setSettings(prev => ({...prev, allowPublicTags: checked}))
+                    }
+                  />
+                </div>
+                <Separator />
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label className="text-sm font-medium">Auto-suggest Similar</Label>
+                    <p className="text-xs text-muted-foreground">Suggest existing similar tags</p>
+                  </div>
+                  <Switch 
+                    checked={settings.autoSuggestSimilar}
+                    onCheckedChange={(checked) => 
+                      setSettings(prev => ({...prev, autoSuggestSimilar: checked}))
+                    }
+                  />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button>Save Settings</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="h-4 w-4 mr-2" />
+                Invite Member
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Invite Team Member</DialogTitle>
+                <DialogDescription>
+                  Send an invitation to join your team
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                <div className="space-y-2">
+                  <Label htmlFor="inviteEmail">Email Address</Label>
+                  <Input id="inviteEmail" placeholder="colleague@company.com" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="inviteRole">Role</Label>
+                  <Select defaultValue="viewer">
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select role" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="viewer">Viewer - View only access</SelectItem>
+                      <SelectItem value="editor">Editor - Can create and edit tags</SelectItem>
+                      <SelectItem value="admin">Admin - Full access</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="outline">Cancel</Button>
+                <Button>Send Invitation</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </div>
+      </div>
+
+      {/* Team Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Total Members</p>
+                <p className="text-2xl font-bold">{members.length}</p>
+              </div>
+              <Users className="h-8 w-8 text-muted-foreground" />
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Admins</p>
+                <p className="text-2xl font-bold">{members.filter(m => m.role === "admin").length}</p>
+              </div>
+              <Crown className="h-8 w-8 text-muted-foreground" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Active Tags</p>
+                <p className="text-2xl font-bold">{members.reduce((sum, m) => sum + m.tagStats.created, 0)}</p>
+              </div>
+              <Shield className="h-8 w-8 text-muted-foreground" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Total Usage</p>
+                <p className="text-2xl font-bold">{members.reduce((sum, m) => sum + m.tagStats.used, 0)}</p>
+              </div>
+              <UserCheck className="h-8 w-8 text-muted-foreground" />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Search and Filters */}
+      <Card>
+        <CardContent className="p-4">
+          <div className="flex items-center gap-4">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search members..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+            <Select value={roleFilter} onValueChange={setRoleFilter}>
+              <SelectTrigger className="w-40">
+                <Filter className="h-4 w-4 mr-2" />
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Roles</SelectItem>
+                <SelectItem value="admin">Admins</SelectItem>
+                <SelectItem value="editor">Editors</SelectItem>
+                <SelectItem value="viewer">Viewers</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Members Table */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Team Members</CardTitle>
+          <CardDescription>
+            Manage roles and permissions for your team
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Member</TableHead>
+                <TableHead>Role</TableHead>
+                <TableHead>Tag Stats</TableHead>
+                <TableHead>Last Active</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredMembers.map((member) => (
+                <TableRow key={member.id}>
+                  <TableCell>
+                    <div className="flex items-center gap-3">
+                      <Avatar className="h-8 w-8">
+                        <AvatarImage src={member.avatar} alt={member.name} />
+                        <AvatarFallback>
+                          {member.name.split(' ').map(n => n[0]).join('').toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <p className="font-medium">{member.name}</p>
+                        <p className="text-sm text-muted-foreground">{member.email}</p>
+                      </div>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant={getRoleBadgeVariant(member.role)} className="capitalize">
+                      <div className="flex items-center gap-1">
+                        {getRoleIcon(member.role)}
+                        {member.role}
+                      </div>
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-4 text-sm">
+                      <span className="text-muted-foreground">
+                        Created: <span className="font-medium text-foreground">{member.tagStats.created}</span>
+                      </span>
+                      <span className="text-muted-foreground">
+                        Used: <span className="font-medium text-foreground">{member.tagStats.used}</span>
+                      </span>
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {formatLastActive(member.lastActive)}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex items-center gap-1 justify-end">
+                      <Select 
+                        value={member.role} 
+                        onValueChange={(value: "admin" | "editor" | "viewer") => 
+                          handleRoleChange(member.id, value)
+                        }
+                      >
+                        <SelectTrigger className="w-20">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="admin">Admin</SelectItem>
+                          <SelectItem value="editor">Editor</SelectItem>
+                          <SelectItem value="viewer">Viewer</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        onClick={() => handleRemoveMember(member.id)}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+    </div>
+  )
+}

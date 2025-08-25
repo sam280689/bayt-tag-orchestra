@@ -39,6 +39,11 @@ const navigation = [
     href: "/tags",
     icon: Tags,
   },
+  {
+    name: "Team",
+    href: "/team",
+    icon: Users,
+  },
 ]
 
 export function MainNav() {

@@ -4,7 +4,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Tag } from "@/components/ui/tag"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
-import { Plus, Hash, Users, User } from "lucide-react"
+import { Plus, Hash, Users, User, Sparkles, TrendingUp, Zap } from "lucide-react"
+import { SmartSuggestionEngine, UserContext, SuggestionContext } from "@/lib/smart-suggestions"
 
 export interface TagSuggestion {
   value: string
@@ -22,6 +23,13 @@ export interface TagInputProps {
   className?: string
   disabled?: boolean
   onCreateTag?: (tag: string) => void
+  userContext?: UserContext
+  enableSmartSuggestions?: boolean
+  candidateProfile?: {
+    skills: string[]
+    experience: string
+    location: string
+  }
 }
 
 export function TagInput({
@@ -33,9 +41,14 @@ export function TagInput({
   className,
   disabled = false,
   onCreateTag,
+  userContext,
+  enableSmartSuggestions = true,
+  candidateProfile,
 }: TagInputProps) {
   const [open, setOpen] = React.useState(false)
   const [inputValue, setInputValue] = React.useState("")
+  const [smartSuggestions, setSmartSuggestions] = React.useState<TagSuggestion[]>([])
+  const smartEngine = React.useMemo(() => SmartSuggestionEngine.getInstance(), [])
 
   const handleSelect = (selectedValue: string) => {
     if (!value.includes(selectedValue) && (!maxTags || value.length < maxTags)) {
@@ -58,16 +71,36 @@ export function TagInput({
     setOpen(false)
   }
 
-  const filteredSuggestions = suggestions.filter(
+  // Generate smart suggestions when enabled and context is available
+  React.useEffect(() => {
+    if (enableSmartSuggestions && userContext && inputValue.length > 0) {
+      const context: SuggestionContext = {
+        currentTags: value,
+        inputText: inputValue,
+        userContext,
+        candidateProfile
+      }
+      const smartSugs = smartEngine.generateSmartSuggestions(context)
+      setSmartSuggestions(smartSugs)
+    } else {
+      setSmartSuggestions([])
+    }
+  }, [inputValue, value, userContext, candidateProfile, enableSmartSuggestions, smartEngine])
+
+  // Combine regular and smart suggestions
+  const allSuggestions = enableSmartSuggestions && userContext ? smartSuggestions : suggestions
+  
+  const filteredSuggestions = allSuggestions.filter(
     suggestion => 
       !value.includes(suggestion.value) &&
       suggestion.label.toLowerCase().includes(inputValue.toLowerCase())
-  ).slice(0, 7)
+  ).slice(0, 10)
 
   const groupedSuggestions = {
     team: filteredSuggestions.filter(s => s.type === "team"),
     recent: filteredSuggestions.filter(s => s.type === "recent"),
     global: filteredSuggestions.filter(s => s.type === "global"),
+    personal: filteredSuggestions.filter(s => s.type === "personal"),
   }
 
   const getTagVariant = (tag: string) => {
@@ -82,9 +115,20 @@ export function TagInput({
   const getGroupIcon = (type: string) => {
     switch (type) {
       case "team": return <Users className="h-3 w-3" />
-      case "recent": return <Hash className="h-3 w-3" />
+      case "recent": return <TrendingUp className="h-3 w-3" />
       case "global": return <Hash className="h-3 w-3" />
+      case "personal": return <User className="h-3 w-3" />
       default: return <Hash className="h-3 w-3" />
+    }
+  }
+
+  const getGroupTitle = (type: string) => {
+    switch (type) {
+      case "team": return "Team Tags"
+      case "recent": return enableSmartSuggestions ? "Smart Suggestions" : "Recently Used"
+      case "global": return "Popular Tags"
+      case "personal": return "Personal Tags"
+      default: return "Tags"
     }
   }
 
@@ -158,9 +202,12 @@ export function TagInput({
                     {Object.entries(groupedSuggestions).map(([type, items]) => 
                       items.length > 0 && (
                         <CommandGroup key={type} heading={
-                          <div className="flex items-center gap-2 capitalize">
+                          <div className="flex items-center gap-2">
                             {getGroupIcon(type)}
-                            {type === "team" ? "Team Tags" : type === "recent" ? "Recently Used" : "Popular on Bayt"}
+                            <span>{getGroupTitle(type)}</span>
+                            {enableSmartSuggestions && type === "recent" && (
+                              <Sparkles className="h-3 w-3 text-primary" />
+                            )}
                           </div>
                         }>
                           {items.map((suggestion) => (
@@ -170,7 +217,12 @@ export function TagInput({
                               onSelect={handleSelect}
                               className="flex items-center justify-between"
                             >
-                              <span>{suggestion.label}</span>
+                              <div className="flex items-center gap-2">
+                                <span>{suggestion.label}</span>
+                                {enableSmartSuggestions && type === "recent" && (
+                                  <Zap className="h-3 w-3 text-primary" />
+                                )}
+                              </div>
                               {suggestion.count && (
                                 <Badge variant="secondary" className="ml-2">
                                   {suggestion.count}

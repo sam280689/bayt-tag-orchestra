@@ -33,8 +33,11 @@ import {
   AlertTriangle,
   Users,
   User,
-  Globe
+  Globe,
+  Zap,
+  RefreshCw
 } from "lucide-react"
+import { DuplicateDetectionEngine } from "@/lib/smart-suggestions"
 
 interface TagData {
   id: string
@@ -103,13 +106,21 @@ export function TagManagement() {
   const [tags, setTags] = React.useState(mockTags)
   const [searchQuery, setSearchQuery] = React.useState("")
   const [selectedTags, setSelectedTags] = React.useState<string[]>([])
+  const [isScanning, setIsScanning] = React.useState(false)
 
   const filteredTags = tags.filter(tag =>
     tag.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     tag.createdBy.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
-  const duplicateTags = tags.filter(tag => tag.duplicates && tag.duplicates.length > 0)
+  // Enhanced duplicate detection using smart algorithms
+  const duplicateTags = React.useMemo(() => {
+    const detectedDuplicates = DuplicateDetectionEngine.detectDuplicates(tags)
+    return tags.map(tag => {
+      const detected = detectedDuplicates.find(d => d.id === tag.id)
+      return detected ? { ...tag, duplicates: detected.duplicates } : tag
+    }).filter(tag => tag.duplicates && tag.duplicates.length > 0)
+  }, [tags])
 
   const getTypeIcon = (type: string) => {
     switch (type) {
@@ -156,6 +167,23 @@ export function TagManagement() {
     setTags(prev => prev.filter(t => t.id !== tagId))
   }
 
+  const handleSmartScan = async () => {
+    setIsScanning(true)
+    
+    // Simulate scanning process
+    await new Promise(resolve => setTimeout(resolve, 2000))
+    
+    // In real implementation, this would call the smart detection API
+    const detectedDuplicates = DuplicateDetectionEngine.detectDuplicates(tags)
+    
+    toast({
+      title: "Smart Scan Complete",
+      description: `Found ${detectedDuplicates.length} potential duplicates and optimization opportunities.`,
+    })
+    
+    setIsScanning(false)
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -166,13 +194,26 @@ export function TagManagement() {
             Manage your tag taxonomy and maintain data quality
           </p>
         </div>
-        <Dialog>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              Create Tag
-            </Button>
-          </DialogTrigger>
+        <div className="flex items-center gap-2">
+          <Button 
+            variant="outline" 
+            onClick={handleSmartScan}
+            disabled={isScanning}
+          >
+            {isScanning ? (
+              <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <Zap className="h-4 w-4 mr-2" />
+            )}
+            {isScanning ? "Scanning..." : "Smart Scan"}
+          </Button>
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="h-4 w-4 mr-2" />
+                Create Tag
+              </Button>
+            </DialogTrigger>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Create New Tag</DialogTitle>
@@ -192,6 +233,7 @@ export function TagManagement() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       {/* Quick Stats */}
