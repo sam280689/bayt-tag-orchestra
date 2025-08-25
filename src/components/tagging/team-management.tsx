@@ -4,6 +4,8 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { supabase } from "@/integrations/supabase/client"
+import { useAuth } from "@/hooks/useAuth"
 import { 
   Table,
   TableBody,
@@ -165,10 +167,89 @@ const mockTeamSettings: TeamSettings = {
 }
 
 export function TeamManagement() {
-  const [members, setMembers] = React.useState(mockTeamMembers)
-  const [settings, setSettings] = React.useState(mockTeamSettings)
+  const { user } = useAuth()
+  const [members, setMembers] = React.useState<TeamMember[]>([])
+  const [settings, setSettings] = React.useState<TeamSettings>(mockTeamSettings)
   const [searchQuery, setSearchQuery] = React.useState("")
   const [roleFilter, setRoleFilter] = React.useState<string>("all")
+  const [loading, setLoading] = React.useState(true)
+
+  React.useEffect(() => {
+    if (user) {
+      fetchTeamData()
+    }
+  }, [user])
+
+  const fetchTeamData = async () => {
+    try {
+      // Fetch team members with profiles
+      const { data: teamMembers, error: membersError } = await supabase
+        .from('team_members')
+        .select('*')
+        .order('created_at', { ascending: true })
+
+      if (membersError) throw membersError
+
+      // Get user profiles separately since the relation doesn't exist yet
+      const memberIds = teamMembers?.map(m => m.user_id) || []
+      const { data: profiles, error: profilesError } = await supabase
+        .from('profiles')
+        .select('*')
+        .in('user_id', memberIds)
+
+      if (profilesError) throw profilesError
+
+      // Transform data to match interface
+      const transformedMembers: TeamMember[] = teamMembers?.map(member => {
+        const profile = profiles?.find(p => p.user_id === member.user_id)
+        return {
+          id: member.id,
+          name: profile?.name || 'Unknown',
+          email: profile?.email || '',
+          role: member.role as "admin" | "editor" | "viewer",
+          avatar: profile?.avatar_url,
+          lastActive: member.last_active || member.created_at,
+          permissions: (member.permissions as any) || {
+            canCreateTags: false,
+            canEditTags: false,
+            canDeleteTags: false,
+            canManageTeam: false,
+            canViewAnalytics: false,
+          },
+          tagStats: (member.tag_stats as any) || { created: 0, used: 0, shared: 0 }
+        }
+      }) || []
+
+      setMembers(transformedMembers)
+
+      // Fetch team settings
+      const { data: teamSettings, error: settingsError } = await supabase
+        .from('team_settings')
+        .select('*')
+        .limit(1)
+        .single()
+
+      if (!settingsError && teamSettings) {
+        setSettings({
+          requireApproval: teamSettings.require_approval,
+          allowPublicTags: teamSettings.allow_public_tags,
+          autoSuggestSimilar: teamSettings.auto_suggest_similar,
+          enforceNamingConvention: teamSettings.enforce_naming_convention,
+          maxTagsPerUser: teamSettings.max_tags_per_user
+        })
+      }
+      
+    } catch (error) {
+      console.error('Error fetching team data:', error)
+      toast({
+        title: "Error",
+        description: "Failed to load team data",
+        variant: "destructive"
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const filteredMembers = members.filter(member => {
     const matchesSearch = member.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -195,57 +276,92 @@ export function TeamManagement() {
     }
   }
 
-  const handleRoleChange = (memberId: string, newRole: "admin" | "editor" | "viewer") => {
+  const handleRoleChange = async (memberId: string, newRole: "admin" | "editor" | "viewer") => {
     const member = members.find(m => m.id === memberId)
     if (!member) return
 
-    // Update permissions based on role
-    const permissions = {
-      admin: {
-        canCreateTags: true,
-        canEditTags: true,
-        canDeleteTags: true,
-        canManageTeam: true,
-        canViewAnalytics: true,
-      },
-      editor: {
-        canCreateTags: true,
-        canEditTags: true,
-        canDeleteTags: false,
-        canManageTeam: false,
-        canViewAnalytics: true,
-      },
-      viewer: {
-        canCreateTags: false,
-        canEditTags: false,
-        canDeleteTags: false,
-        canManageTeam: false,
-        canViewAnalytics: false,
+    try {
+      // Update permissions based on role
+      const permissions = {
+        admin: {
+          canCreateTags: true,
+          canEditTags: true,
+          canDeleteTags: true,
+          canManageTeam: true,
+          canViewAnalytics: true,
+        },
+        editor: {
+          canCreateTags: true,
+          canEditTags: true,
+          canDeleteTags: false,
+          canManageTeam: false,
+          canViewAnalytics: true,
+        },
+        viewer: {
+          canCreateTags: false,
+          canEditTags: false,
+          canDeleteTags: false,
+          canManageTeam: false,
+          canViewAnalytics: false,
+        }
       }
+
+      const { error } = await supabase
+        .from('team_members')
+        .update({ 
+          role: newRole,
+          permissions: permissions[newRole]
+        })
+        .eq('id', memberId)
+
+      if (error) throw error
+
+      setMembers(prev => prev.map(m => 
+        m.id === memberId 
+          ? { ...m, role: newRole, permissions: permissions[newRole] }
+          : m
+      ))
+
+      toast({
+        title: "Role Updated",
+        description: `${member.name}'s role has been changed to ${newRole}`,
+      })
+    } catch (error) {
+      console.error('Error updating role:', error)
+      toast({
+        title: "Error",
+        description: "Failed to update member role",
+        variant: "destructive"
+      })
     }
-
-    setMembers(prev => prev.map(m => 
-      m.id === memberId 
-        ? { ...m, role: newRole, permissions: permissions[newRole] }
-        : m
-    ))
-
-    toast({
-      title: "Role Updated",
-      description: `${member.name}'s role has been changed to ${newRole}`,
-    })
   }
 
-  const handleRemoveMember = (memberId: string) => {
+  const handleRemoveMember = async (memberId: string) => {
     const member = members.find(m => m.id === memberId)
     if (!member) return
 
-    setMembers(prev => prev.filter(m => m.id !== memberId))
-    toast({
-      title: "Member Removed",
-      description: `${member.name} has been removed from the team`,
-      variant: "destructive"
-    })
+    try {
+      const { error } = await supabase
+        .from('team_members')
+        .delete()
+        .eq('id', memberId)
+
+      if (error) throw error
+
+      setMembers(prev => prev.filter(m => m.id !== memberId))
+      toast({
+        title: "Member Removed",
+        description: `${member.name} has been removed from the team`,
+        variant: "destructive"
+      })
+    } catch (error) {
+      console.error('Error removing member:', error)
+      toast({
+        title: "Error",
+        description: "Failed to remove team member",
+        variant: "destructive"
+      })
+    }
   }
 
   const formatLastActive = (timestamp: string) => {
@@ -257,6 +373,10 @@ export function TeamManagement() {
     if (diffInHours < 24) return `${diffInHours}h ago`
     const diffInDays = Math.floor(diffInHours / 24)
     return `${diffInDays}d ago`
+  }
+
+  if (loading) {
+    return <div className="space-y-6">Loading team management...</div>
   }
 
   return (

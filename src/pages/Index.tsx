@@ -2,8 +2,12 @@ import * as React from "react"
 import { useLocation } from "react-router-dom"
 import { CandidateList } from '@/components/tagging/candidate-list';
 import { AnalyticsDashboard } from '@/components/tagging/analytics-dashboard';
+import { AdvancedAnalytics } from '@/components/tagging/advanced-analytics';
 import { TagManagement } from '@/components/tagging/tag-management';
 import { PersonalTags } from '@/components/tagging/personal-tags';
+import { TeamManagement } from '@/components/tagging/team-management';
+import { WorkflowAutomation } from '@/components/tagging/workflow-automation';
+import { AIAssistant } from '@/components/tagging/ai-assistant';
 import { MainNav } from '@/components/navigation/main-nav';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -40,8 +44,16 @@ const Index = () => {
         return <CandidateList />
       case "/analytics":
         return <AnalyticsDashboard />
+      case "/analytics/advanced":
+        return <AdvancedAnalytics />
       case "/tags":
         return <TagManagement />
+      case "/workflows":
+        return <WorkflowAutomation />
+      case "/ai-assistant":
+        return <AIAssistant />
+      case "/team":
+        return <TeamManagement />
       case "/":
         return <PersonalTags />
       default:
