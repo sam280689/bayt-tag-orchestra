@@ -14,7 +14,335 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      analytics_data: {
+        Row: {
+          dimensions: Json
+          id: string
+          metric_name: string
+          metric_value: number
+          period_end: string
+          period_start: string
+          recorded_at: string
+        }
+        Insert: {
+          dimensions?: Json
+          id?: string
+          metric_name: string
+          metric_value: number
+          period_end: string
+          period_start: string
+          recorded_at?: string
+        }
+        Update: {
+          dimensions?: Json
+          id?: string
+          metric_name?: string
+          metric_value?: number
+          period_end?: string
+          period_start?: string
+          recorded_at?: string
+        }
+        Relationships: []
+      }
+      bulk_operations: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          created_by: string
+          id: string
+          parameters: Json
+          progress: number
+          results: Json | null
+          status: string
+          targets: string[]
+          type: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          created_by: string
+          id?: string
+          parameters?: Json
+          progress?: number
+          results?: Json | null
+          status?: string
+          targets: string[]
+          type: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string
+          id?: string
+          parameters?: Json
+          progress?: number
+          results?: Json | null
+          status?: string
+          targets?: string[]
+          type?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          email: string
+          id: string
+          name: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          email: string
+          id?: string
+          name: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          email?: string
+          id?: string
+          name?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      tag_relationships: {
+        Row: {
+          created_at: string
+          id: string
+          relationship_type: string
+          source_tag_id: string
+          strength: number
+          target_tag_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          relationship_type: string
+          source_tag_id: string
+          strength?: number
+          target_tag_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          relationship_type?: string
+          source_tag_id?: string
+          strength?: number
+          target_tag_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tag_relationships_source_tag_id_fkey"
+            columns: ["source_tag_id"]
+            isOneToOne: false
+            referencedRelation: "tags"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tag_relationships_target_tag_id_fkey"
+            columns: ["target_tag_id"]
+            isOneToOne: false
+            referencedRelation: "tags"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tags: {
+        Row: {
+          created_at: string
+          created_by: string
+          duplicates: string[] | null
+          id: string
+          last_used: string | null
+          name: string
+          type: string
+          updated_at: string
+          usage_count: number
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          duplicates?: string[] | null
+          id?: string
+          last_used?: string | null
+          name: string
+          type: string
+          updated_at?: string
+          usage_count?: number
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          duplicates?: string[] | null
+          id?: string
+          last_used?: string | null
+          name?: string
+          type?: string
+          updated_at?: string
+          usage_count?: number
+        }
+        Relationships: []
+      }
+      team_members: {
+        Row: {
+          created_at: string
+          id: string
+          last_active: string | null
+          permissions: Json
+          role: string
+          tag_stats: Json
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          last_active?: string | null
+          permissions?: Json
+          role?: string
+          tag_stats?: Json
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          last_active?: string | null
+          permissions?: Json
+          role?: string
+          tag_stats?: Json
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      team_settings: {
+        Row: {
+          allow_public_tags: boolean
+          auto_suggest_similar: boolean
+          created_at: string
+          enforce_naming_convention: boolean
+          id: string
+          max_tags_per_user: number
+          require_approval: boolean
+          updated_at: string
+        }
+        Insert: {
+          allow_public_tags?: boolean
+          auto_suggest_similar?: boolean
+          created_at?: string
+          enforce_naming_convention?: boolean
+          id?: string
+          max_tags_per_user?: number
+          require_approval?: boolean
+          updated_at?: string
+        }
+        Update: {
+          allow_public_tags?: boolean
+          auto_suggest_similar?: boolean
+          created_at?: string
+          enforce_naming_convention?: boolean
+          id?: string
+          max_tags_per_user?: number
+          require_approval?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      workflow_executions: {
+        Row: {
+          completed_at: string | null
+          error_message: string | null
+          executed_at: string
+          id: string
+          results: Json | null
+          rule_id: string
+          status: string
+        }
+        Insert: {
+          completed_at?: string | null
+          error_message?: string | null
+          executed_at?: string
+          id?: string
+          results?: Json | null
+          rule_id: string
+          status?: string
+        }
+        Update: {
+          completed_at?: string | null
+          error_message?: string | null
+          executed_at?: string
+          id?: string
+          results?: Json | null
+          rule_id?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workflow_executions_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "workflow_rules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workflow_rules: {
+        Row: {
+          actions: Json
+          conditions: Json
+          created_at: string
+          created_by: string
+          description: string | null
+          enabled: boolean
+          execution_count: number
+          id: string
+          last_executed: string | null
+          name: string
+          trigger_config: Json
+          trigger_type: string
+          updated_at: string
+        }
+        Insert: {
+          actions?: Json
+          conditions?: Json
+          created_at?: string
+          created_by: string
+          description?: string | null
+          enabled?: boolean
+          execution_count?: number
+          id?: string
+          last_executed?: string | null
+          name: string
+          trigger_config?: Json
+          trigger_type: string
+          updated_at?: string
+        }
+        Update: {
+          actions?: Json
+          conditions?: Json
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          enabled?: boolean
+          execution_count?: number
+          id?: string
+          last_executed?: string | null
+          name?: string
+          trigger_config?: Json
+          trigger_type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
