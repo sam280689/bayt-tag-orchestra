@@ -80,6 +80,7 @@ export function AnalyticsDashboard() {
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {/* Phase 1: Basic Adoption Metrics */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Active Taggers</CardTitle>
@@ -95,6 +96,16 @@ export function AnalyticsDashboard() {
             <p className="text-xs text-muted-foreground mt-1">
               102 recruiters, 78 seekers
             </p>
+            <div className="mt-2 space-y-1">
+              <div className="flex justify-between text-xs">
+                <span>Personal tags</span>
+                <span className="font-medium">623 users</span>
+              </div>
+              <div className="flex justify-between text-xs">
+                <span>Team tags</span>
+                <span className="font-medium">224 users</span>
+              </div>
+            </div>
           </CardContent>
         </Card>
 
@@ -112,6 +123,16 @@ export function AnalyticsDashboard() {
             <p className="text-xs text-muted-foreground mt-2">
               3.2s vs 8.0s average time
             </p>
+            <div className="mt-2 space-y-1">
+              <div className="flex justify-between text-xs">
+                <span>Tagged search</span>
+                <span className="font-medium text-success">3.2s avg</span>
+              </div>
+              <div className="flex justify-between text-xs">
+                <span>Text search</span>
+                <span className="font-medium text-muted-foreground">8.0s avg</span>
+              </div>
+            </div>
           </CardContent>
         </Card>
 
@@ -129,6 +150,16 @@ export function AnalyticsDashboard() {
             <p className="text-xs text-muted-foreground mt-2">
               Higher interview rate
             </p>
+            <div className="mt-2 space-y-1">
+              <div className="flex justify-between text-xs">
+                <span>Tagged candidates</span>
+                <span className="font-medium text-success">20% interview rate</span>
+              </div>
+              <div className="flex justify-between text-xs">
+                <span>Untagged candidates</span>
+                <span className="font-medium text-muted-foreground">15% interview rate</span>
+              </div>
+            </div>
           </CardContent>
         </Card>
 

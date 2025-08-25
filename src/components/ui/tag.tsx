@@ -58,8 +58,8 @@ const Tag = React.forwardRef<HTMLDivElement, TagProps>(
               e.stopPropagation()
               onRemove?.()
             }}
-            className="ml-1 rounded-sm opacity-70 hover:opacity-100 focus:opacity-100 focus:outline-none focus:ring-1 focus:ring-ring"
-            aria-label="Remove tag"
+            className="ml-1 rounded-sm opacity-70 hover:opacity-100 focus:opacity-100 focus:outline-none focus:ring-1 focus:ring-ring min-w-[20px] min-h-[20px] flex items-center justify-center"
+            aria-label={`Remove ${children} tag`}
             type="button"
           >
             <X className="h-3 w-3" />

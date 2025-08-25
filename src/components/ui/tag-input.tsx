@@ -90,9 +90,9 @@ export function TagInput({
 
   return (
     <div className={cn("space-y-2", className)}>
-      {/* Selected Tags */}
+      {/* Selected Tags with Screen Reader Support */}
       {value.length > 0 && (
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2" id="selected-tags" aria-label="Selected tags">
           {value.map((tag) => (
             <Tag
               key={tag}
@@ -100,6 +100,7 @@ export function TagInput({
               removable
               onRemove={() => handleRemove(tag)}
               disabled={disabled}
+              aria-label={`Remove ${tag} tag`}
             >
               {tag}
             </Tag>
@@ -107,7 +108,7 @@ export function TagInput({
         </div>
       )}
 
-      {/* Tag Input */}
+      {/* Tag Input with Enhanced Accessibility */}
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <div className="relative">
@@ -121,15 +122,21 @@ export function TagInput({
                 onValueChange={setInputValue}
                 onFocus={() => setOpen(true)}
                 disabled={disabled || (maxTags && value.length >= maxTags)}
-                className="border-input"
+                className="border-input min-h-[44px] focus:ring-2 focus:ring-primary focus:border-primary"
+                aria-label="Tag input field"
+                aria-describedby={value.length > 0 ? "selected-tags" : undefined}
               />
             </Command>
           </div>
         </PopoverTrigger>
         {open && inputValue.length > 0 && (
-          <PopoverContent className="w-full p-0" align="start">
+          <PopoverContent 
+            className="w-full p-0 bg-background border z-50 shadow-lg" 
+            align="start"
+            onOpenAutoFocus={(e) => e.preventDefault()}
+          >
             <Command>
-              <CommandList className="max-h-64">
+              <CommandList className="max-h-64" role="listbox" aria-label="Tag suggestions">
                 {filteredSuggestions.length === 0 ? (
                   <CommandEmpty className="py-6 text-center text-sm">
                     <div className="space-y-2">
@@ -137,7 +144,8 @@ export function TagInput({
                       {inputValue.trim() && (
                         <button
                           onClick={() => handleCreateNew(inputValue.trim())}
-                          className="inline-flex items-center gap-2 text-xs text-primary hover:underline"
+                          className="inline-flex items-center gap-2 text-xs text-primary hover:underline focus:ring-2 focus:ring-primary focus:outline-none rounded px-2 py-1"
+                          aria-label={`Create new tag "${inputValue.trim()}"`}
                         >
                           <Plus className="h-3 w-3" />
                           Create "{inputValue.trim()}"
