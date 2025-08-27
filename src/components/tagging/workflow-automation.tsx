@@ -47,6 +47,7 @@ import {
   Clock,
   CheckCircle,
   AlertCircle,
+  AlertTriangle,
   Zap,
   Bot,
   Workflow,
@@ -68,6 +69,7 @@ export function WorkflowAutomation() {
   const [selectedTags, setSelectedTags] = React.useState<string[]>([])
   const [isCreateDialogOpen, setIsCreateDialogOpen] = React.useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = React.useState(false)
+  const [deleteRuleId, setDeleteRuleId] = React.useState<string | null>(null)
   
   // Form state for creating rules
   const [newRule, setNewRule] = React.useState({
@@ -398,17 +400,19 @@ export function WorkflowAutomation() {
   }
 
   const handleDeleteRule = async (ruleId: string) => {
-    console.log('Deleting rule:', ruleId)
+    setDeleteRuleId(ruleId)
+  }
+
+  const confirmDeleteRule = async () => {
+    if (!deleteRuleId) return
     
-    if (!confirm('Are you sure you want to delete this rule? This action cannot be undone.')) {
-      return
-    }
+    console.log('Deleting rule:', deleteRuleId)
 
     try {
       const { error } = await supabase
         .from('workflow_rules')
         .delete()
-        .eq('id', ruleId)
+        .eq('id', deleteRuleId)
         .eq('created_by', user?.id) // Ensure user can only delete their own rules
 
       if (error) {
@@ -429,6 +433,8 @@ export function WorkflowAutomation() {
         description: "Failed to delete workflow rule. You can only delete rules you created.",
         variant: "destructive"
       })
+    } finally {
+      setDeleteRuleId(null)
     }
   }
 
@@ -1125,6 +1131,30 @@ export function WorkflowAutomation() {
           </div>
         </TabsContent>
       </Tabs>
+      
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={!!deleteRuleId} onOpenChange={() => setDeleteRuleId(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-red-500" />
+              <DialogTitle>Delete Workflow Rule</DialogTitle>
+            </div>
+            <DialogDescription>
+              Are you sure you want to delete this rule? This action cannot be undone and will permanently remove the workflow automation.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteRuleId(null)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={confirmDeleteRule}>
+              Delete Rule
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
       </div>
     </TooltipProvider>
   )
