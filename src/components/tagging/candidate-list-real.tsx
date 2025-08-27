@@ -374,7 +374,7 @@ export function CandidateListReal() {
         candidate.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
         (candidate.profile_text && candidate.profile_text.toLowerCase().includes(searchQuery.toLowerCase()))
 
-      const matchesTagFilter = !tagFilter || 
+      const matchesTagFilter = !tagFilter || tagFilter === "all" || 
         candidate.tags.some(tag => tag.name === tagFilter)
 
       return matchesSearch && matchesTagFilter
@@ -437,7 +437,7 @@ export function CandidateListReal() {
                 <SelectValue placeholder="Filter by tag" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All candidates</SelectItem>
+                <SelectItem value="all">All candidates</SelectItem>
                 {availableTags.map((tag) => (
                   <SelectItem key={tag.value} value={tag.value}>
                     {tag.label} ({tag.count})
