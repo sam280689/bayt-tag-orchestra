@@ -119,22 +119,33 @@ export function CandidateListReal() {
 
   const fetchAvailableTags = async () => {
     try {
+      const session = await supabase.auth.getSession();
+      if (!session.data.session) {
+        console.log('No session available for fetching tags');
+        return;
+      }
+
       const response = await supabase.functions.invoke('tags', {
         body: {}
       })
 
-      if (response.error) throw response.error
+      if (response.error) {
+        console.error('Error response from tags function:', response.error);
+        throw response.error;
+      }
 
-      const tagSuggestions: TagSuggestion[] = response.data.tags.map((tag: any) => ({
+      const tagSuggestions: TagSuggestion[] = response.data?.tags?.map((tag: any) => ({
         value: tag.name,
         label: tag.name,
         type: tag.type,
         count: tag.usage_count
-      }))
+      })) || []
 
       setAvailableTags(tagSuggestions)
     } catch (error) {
       console.error('Error fetching tags:', error)
+      // Set empty array on error to prevent UI issues
+      setAvailableTags([])
     }
   }
 

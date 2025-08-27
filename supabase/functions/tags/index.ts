@@ -25,11 +25,17 @@ Deno.serve(async (req) => {
 
     // Get user from auth header
     const authHeader = req.headers.get('Authorization')
+    let user = null
     if (authHeader) {
       const token = authHeader.replace('Bearer ', '')
-      const { data: { user } } = await supabase.auth.getUser(token)
-      if (user) {
-        supabase.auth.setSession({ access_token: token, refresh_token: '' } as any)
+      const { data: { user: authUser }, error: authError } = await supabase.auth.getUser(token)
+      if (authUser && !authError) {
+        user = authUser
+        // Set the session for subsequent requests
+        await supabase.auth.setSession({ 
+          access_token: token, 
+          refresh_token: token 
+        })
       }
     }
 
@@ -84,13 +90,15 @@ Deno.serve(async (req) => {
         })
       }
 
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) {
+      const { data: { user: currentUser } } = await supabase.auth.getUser()
+      if (!currentUser && !user) {
         return new Response(JSON.stringify({ error: 'Unauthorized' }), {
           status: 401,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         })
       }
+
+      const activeUser = currentUser || user
 
       // Check if tag already exists
       const { data: existingTag } = await supabase
@@ -111,7 +119,7 @@ Deno.serve(async (req) => {
         .insert({
           name,
           type,
-          created_by: user.id,
+          created_by: activeUser.id,
           usage_count: 0
         })
         .select()

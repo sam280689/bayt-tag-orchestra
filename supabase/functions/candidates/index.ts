@@ -25,11 +25,17 @@ Deno.serve(async (req) => {
 
     // Get user from auth header
     const authHeader = req.headers.get('Authorization')
+    let user = null
     if (authHeader) {
       const token = authHeader.replace('Bearer ', '')
-      const { data: { user } } = await supabase.auth.getUser(token)
-      if (user) {
-        supabase.auth.setSession({ access_token: token, refresh_token: '' } as any)
+      const { data: { user: authUser }, error: authError } = await supabase.auth.getUser(token)
+      if (authUser && !authError) {
+        user = authUser
+        // Set the session for subsequent requests
+        await supabase.auth.setSession({ 
+          access_token: token, 
+          refresh_token: token 
+        })
       }
     }
 
@@ -111,13 +117,15 @@ Deno.serve(async (req) => {
       const candidateId = pathname.split('/').slice(-2)[0] // Get candidate ID from path
       const { tagId } = await req.json()
 
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) {
+      const { data: { user: currentUser } } = await supabase.auth.getUser()
+      if (!currentUser && !user) {
         return new Response(JSON.stringify({ error: 'Unauthorized' }), {
           status: 401,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         })
       }
+
+      const activeUser = currentUser || user
 
       // Insert candidate_tag relationship
       const { data: candidateTag, error } = await supabase
@@ -125,7 +133,7 @@ Deno.serve(async (req) => {
         .insert({
           candidate_id: candidateId,
           tag_id: tagId,
-          created_by: user.id
+          created_by: activeUser.id
         })
         .select()
         .single()
@@ -159,20 +167,22 @@ Deno.serve(async (req) => {
       const candidateId = pathParts[pathParts.length - 3]
       const tagId = pathParts[pathParts.length - 1]
 
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) {
+      const { data: { user: currentUser } } = await supabase.auth.getUser()
+      if (!currentUser && !user) {
         return new Response(JSON.stringify({ error: 'Unauthorized' }), {
           status: 401,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         })
       }
 
+      const activeUser = currentUser || user
+
       const { error } = await supabase
         .from('candidate_tags')
         .delete()
         .eq('candidate_id', candidateId)
         .eq('tag_id', tagId)
-        .eq('created_by', user.id)
+        .eq('created_by', activeUser.id)
 
       if (error) {
         console.error('Error removing tag from candidate:', error)
