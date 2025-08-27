@@ -257,10 +257,10 @@ export function CandidateListReal() {
       console.log('Final tag IDs for bulk operation:', tagIds);
 
       // Create all candidate_tag combinations
-      const candidateTagInserts = []
+      const allCombos = [] as { candidate_id: string; tag_id: string; created_by: string }[]
       for (const candidateId of selectedCandidates) {
         for (const tagId of tagIds) {
-          candidateTagInserts.push({
+          allCombos.push({
             candidate_id: candidateId,
             tag_id: tagId,
             created_by: session.data.session.user.id
@@ -268,22 +268,43 @@ export function CandidateListReal() {
         }
       }
 
-      console.log('About to insert', candidateTagInserts.length, 'candidate-tag relationships');
+      console.log('Total combinations before dedupe:', allCombos.length)
 
-      // Insert all candidate_tag relationships (ignore duplicates)
-      const { error: insertError } = await supabase
+      // Fetch existing relationships to avoid conflicts (works without unique index)
+      const { data: existingCombos, error: existingError } = await supabase
         .from('candidate_tags')
-        .upsert(candidateTagInserts, { 
-          onConflict: 'candidate_id,tag_id',
-          ignoreDuplicates: true 
-        });
+        .select('candidate_id, tag_id')
+        .in('candidate_id', selectedCandidates)
+        .in('tag_id', tagIds)
 
-      if (insertError) {
-        console.error('Error bulk inserting candidate tags:', insertError);
-        throw new Error(`Failed to insert candidate tags: ${insertError.message}`);
+      if (existingError) {
+        console.error('Error fetching existing candidate-tag relationships:', existingError)
+        // Proceed without dedupe fallback
       }
 
-      console.log('Successfully inserted candidate-tag relationships');
+      const existingSet = new Set(
+        (existingCombos || []).map((r: any) => `${r.candidate_id}:${r.tag_id}`)
+      )
+
+      const candidateTagInserts = allCombos.filter(r => !existingSet.has(`${r.candidate_id}:${r.tag_id}`))
+
+      console.log('About to insert', candidateTagInserts.length, 'new candidate-tag relationships')
+
+      if (candidateTagInserts.length > 0) {
+        const { error: insertError } = await supabase
+          .from('candidate_tags')
+          .insert(candidateTagInserts)
+
+        if (insertError) {
+          console.error('Error bulk inserting candidate tags:', insertError)
+          throw new Error(`Failed to insert candidate tags: ${insertError.message}`)
+        }
+      } else {
+        console.log('No new relationships to insert')
+      }
+
+      console.log('Successfully ensured candidate-tag relationships')
+
 
       // Update usage counts for all affected tags
       console.log('Updating usage counts for tags:', tagIds);
