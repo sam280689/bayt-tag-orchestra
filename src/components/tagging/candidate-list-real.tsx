@@ -25,7 +25,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Search, Download, Tag, Users, CheckCircle2, FileSpreadsheet, FileText } from "lucide-react"
+import { Search, Download, Tag, Users, CheckCircle2, FileSpreadsheet, FileText, Upload } from "lucide-react"
 import { exportToExcel, exportToPDF, type ExportCandidate } from "@/lib/export-utils"
 import {
   DropdownMenu,
@@ -34,6 +34,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { useDebounce } from "@/hooks/useDebounce"
+import { BaytImportDialog } from "./bayt-import"
 
 interface CandidateTag {
   id: string
@@ -66,6 +67,7 @@ export function CandidateListReal() {
   const [tagFilter, setTagFilter] = React.useState("")
   const [loading, setLoading] = React.useState(true)
   const [showBulkDialog, setShowBulkDialog] = React.useState(false)
+  const [showBaytImport, setShowBaytImport] = React.useState(false)
   const [suggestions, setSuggestions] = React.useState<TagSuggestion[]>([])
   const [availableTags, setAvailableTags] = React.useState<TagSuggestion[]>([])
   
@@ -554,24 +556,30 @@ export function CandidateListReal() {
             Manage and tag candidates for better organization
           </p>
         </div>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button>
-              <Download className="h-4 w-4 mr-2" />
-              Export {selectedCandidates.length > 0 ? 'Selected' : 'All'}
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => handleExport('excel')}>
-              <FileSpreadsheet className="h-4 w-4 mr-2" />
-              Export to Excel
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => handleExport('pdf')}>
-              <FileText className="h-4 w-4 mr-2" />
-              Export to PDF
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <div className="flex items-center gap-2">
+          <Button onClick={() => setShowBaytImport(true)} variant="outline">
+            <Upload className="h-4 w-4 mr-2" />
+            Import from Bayt
+          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button>
+                <Download className="h-4 w-4 mr-2" />
+                Export {selectedCandidates.length > 0 ? 'Selected' : 'All'}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => handleExport('excel')}>
+                <FileSpreadsheet className="h-4 w-4 mr-2" />
+                Export to Excel
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleExport('pdf')}>
+                <FileText className="h-4 w-4 mr-2" />
+                Export to PDF
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
 
       {/* Search and Filters */}
@@ -743,6 +751,16 @@ export function CandidateListReal() {
           </Card>
         )}
       </div>
+
+      {/* Bayt Import Dialog */}
+      <BaytImportDialog
+        isOpen={showBaytImport}
+        onClose={() => setShowBaytImport(false)}
+        onImportComplete={() => {
+          fetchCandidates()
+          fetchAvailableTags()
+        }}
+      />
     </div>
   )
 }
