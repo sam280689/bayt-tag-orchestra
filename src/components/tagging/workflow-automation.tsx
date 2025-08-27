@@ -86,11 +86,11 @@ export function WorkflowAutomation() {
         name: rule.name,
         description: rule.description || '',
         trigger: {
-          type: rule.trigger_type,
-          config: rule.trigger_config || {}
+          type: rule.trigger_type as any,
+          conditions: Array.isArray(rule.conditions) ? rule.conditions as any[] : []
         },
-        conditions: rule.conditions || [],
-        actions: rule.actions || [],
+        conditions: Array.isArray(rule.conditions) ? rule.conditions as any[] : [],
+        actions: Array.isArray(rule.actions) ? rule.actions as any[] : [],
         enabled: rule.enabled,
         executionCount: rule.execution_count,
         lastExecuted: rule.last_executed,
@@ -116,11 +116,16 @@ export function WorkflowAutomation() {
         targets: op.targets,
         status: op.status as any,
         progress: op.progress,
-        results: op.results || undefined,
+        results: op.results && typeof op.results === 'object' && op.results !== null ? {
+          processed: (op.results as any).processed || 0,
+          successful: (op.results as any).successful || 0,
+          failed: (op.results as any).failed || 0,
+          errors: (op.results as any).errors || []
+        } : undefined,
         createdAt: op.created_at,
         completedAt: op.completed_at || undefined,
         createdBy: op.created_by,
-        parameters: op.parameters || {}
+        parameters: typeof op.parameters === 'object' && op.parameters !== null ? op.parameters as Record<string, any> : {}
       })) || []
 
       setBulkOperations(transformedOperations)

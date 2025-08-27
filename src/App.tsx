@@ -23,11 +23,10 @@ const App = () => (
             <Route path="/auth" element={<Auth />} />
             <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
             <Route path="/candidates" element={<ProtectedRoute><Index /></ProtectedRoute>} />
+            <Route path="/recruiter/candidates" element={<ProtectedRoute><Index /></ProtectedRoute>} />
             <Route path="/analytics" element={<ProtectedRoute><Index /></ProtectedRoute>} />
-            <Route path="/analytics/advanced" element={<ProtectedRoute><Index /></ProtectedRoute>} />
             <Route path="/tags" element={<ProtectedRoute><Index /></ProtectedRoute>} />
             <Route path="/workflows" element={<ProtectedRoute><Index /></ProtectedRoute>} />
-            <Route path="/ai-assistant" element={<ProtectedRoute><Index /></ProtectedRoute>} />
             <Route path="/team" element={<ProtectedRoute><Team /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>

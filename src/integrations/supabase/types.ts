@@ -83,6 +83,72 @@ export type Database = {
         }
         Relationships: []
       }
+      candidate_tags: {
+        Row: {
+          candidate_id: string
+          created_at: string
+          created_by: string
+          id: string
+          tag_id: string
+        }
+        Insert: {
+          candidate_id: string
+          created_at?: string
+          created_by: string
+          id?: string
+          tag_id: string
+        }
+        Update: {
+          candidate_id?: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          tag_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "candidate_tags_candidate_id_fkey"
+            columns: ["candidate_id"]
+            isOneToOne: false
+            referencedRelation: "candidates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "candidate_tags_tag_id_fkey"
+            columns: ["tag_id"]
+            isOneToOne: false
+            referencedRelation: "tags"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      candidates: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          name: string
+          profile_text: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          name: string
+          profile_text?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          name?: string
+          profile_text?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
