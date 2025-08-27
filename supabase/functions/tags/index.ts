@@ -97,7 +97,7 @@ Deno.serve(async (req) => {
         .from('tags')
         .select('*')
         .eq('name', name)
-        .single()
+        .maybeSingle()
 
       if (existingTag) {
         return new Response(JSON.stringify({ error: 'Tag already exists', existingTag }), {

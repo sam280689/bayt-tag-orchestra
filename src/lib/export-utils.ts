@@ -1,13 +1,6 @@
 import * as XLSX from 'xlsx';
-import jsPDF from 'jspdf';
-import 'jspdf-autotable';
-
-// Extend jsPDF with autoTable
-declare module 'jspdf' {
-  interface jsPDF {
-    autoTable: (options: any) => jsPDF;
-  }
-}
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 export interface ExportCandidate {
   name: string;
@@ -63,8 +56,8 @@ export const exportToPDF = (candidates: ExportCandidate[], filename: string = 'c
     candidate.tags
   ]);
 
-  // Add table
-  doc.autoTable({
+  // Add table using autoTable directly
+  autoTable(doc, {
     head: [['Name', 'Email', 'Profile', 'Created Date', 'Tags']],
     body: tableData,
     startY: 40,

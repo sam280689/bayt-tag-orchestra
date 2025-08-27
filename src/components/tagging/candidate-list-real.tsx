@@ -33,6 +33,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { useDebounce } from "@/hooks/useDebounce"
 
 interface CandidateTag {
   id: string
@@ -67,6 +68,9 @@ export function CandidateListReal() {
   const [showBulkDialog, setShowBulkDialog] = React.useState(false)
   const [suggestions, setSuggestions] = React.useState<TagSuggestion[]>([])
   const [availableTags, setAvailableTags] = React.useState<TagSuggestion[]>([])
+  
+  // Debounce search query to improve UX
+  const debouncedSearchQuery = useDebounce(searchQuery, 500)
 
   React.useEffect(() => {
     if (user) {
@@ -81,8 +85,8 @@ export function CandidateListReal() {
       
       // Build query parameters
       const params = new URLSearchParams();
-      if (searchQuery) params.append('search', searchQuery);
-      if (tagFilter) params.append('tags[]', tagFilter);
+      if (debouncedSearchQuery) params.append('search', debouncedSearchQuery);
+      if (tagFilter && tagFilter !== "all") params.append('tags[]', tagFilter);
       
       // Use fetch directly for GET request with query parameters
       const url = `https://sgccmxpdccwikgujbloo.supabase.co/functions/v1/candidates?${params.toString()}`;
@@ -232,57 +236,84 @@ export function CandidateListReal() {
 
       // Create new tags if needed and get their IDs
       for (const tagName of tagsToAdd) {
-        let tagId = availableTags.find(t => t.value === tagName)?.value;
+        let tagId: string | undefined;
         
-        if (!tagId) {
-          // Create new tag
-          const response = await supabase.functions.invoke('tags', {
-            body: { name: tagName, type: 'personal' }
-          });
-          if (response.data?.tag) {
-            tagId = response.data.tag.id;
-            await fetchAvailableTags(); // Refresh available tags
-          }
-        } else {
-          // Get actual tag ID from database
+        // First check if tag exists in our available tags
+        const existingTag = availableTags.find(t => t.value === tagName);
+        if (existingTag) {
+          // Get the actual tag ID from database
           const { data: tagData } = await supabase
             .from('tags')
             .select('id')
             .eq('name', tagName)
             .single();
           tagId = tagData?.id;
+        } else {
+          // Create new tag via edge function
+          try {
+            const response = await supabase.functions.invoke('tags', {
+              body: { name: tagName, type: 'personal' }
+            });
+            if (response.data?.tag?.id) {
+              tagId = response.data.tag.id;
+              // Refresh available tags
+              await fetchAvailableTags();
+            }
+          } catch (error) {
+            console.error('Error creating tag via function:', error);
+          }
         }
 
         if (tagId) {
-          // Apply tag to candidate
-          const response = await fetch(`https://sgccmxpdccwikgujbloo.supabase.co/functions/v1/candidates/${candidateId}/tags`, {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
-              'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNnY2NteHBkY2N3aWtndWpibG9vIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTYxMzg2MjMsImV4cCI6MjA3MTcxNDYyM30.DeQoOqpA9F2Xft5B-U7ucO38CZBYJKnaRxmumnEWaj4',
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ tagId })
-          });
+          // Apply tag to candidate via edge function
+          try {
+            const session = await supabase.auth.getSession();
+            const response = await fetch(`https://sgccmxpdccwikgujbloo.supabase.co/functions/v1/candidates/${candidateId}/tags`, {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${session.data.session?.access_token}`,
+                'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNnY2NteHBkY2N3aWtndWpibG9vIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTYxMzg2MjMsImV4cCI6MjA3MTcxNDYyM30.DeQoOqpA9F2Xft5B-U7ucO38CZBYJKnaRxmumnEWaj4',
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({ tagId })
+            });
+            
+            if (!response.ok) {
+              const errorData = await response.json();
+              console.error('Failed to add tag to candidate:', errorData);
+            }
+          } catch (error) {
+            console.error('Error adding tag to candidate:', error);
+          }
         }
       }
 
       // Remove tags that were unchecked
       for (const tagName of tagsToRemove) {
-        const { data: tagData } = await supabase
-          .from('tags')
-          .select('id')
-          .eq('name', tagName)
-          .single();
-          
-        if (tagData?.id) {
-          const response = await fetch(`https://sgccmxpdccwikgujbloo.supabase.co/functions/v1/candidates/${candidateId}/tags/${tagData.id}`, {
-            method: 'DELETE',
-            headers: {
-              'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
-              'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNnY2NteHBkY2N3aWtndWpibG9vIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTYxMzg2MjMsImV4cCI6MjA3MTcxNDYyM30.DeQoOqpA9F2Xft5B-U7ucO38CZBYJKnaRxmumnEWaj4'
+        try {
+          const { data: tagData } = await supabase
+            .from('tags')
+            .select('id')
+            .eq('name', tagName)
+            .single();
+            
+          if (tagData?.id) {
+            const session = await supabase.auth.getSession();
+            const response = await fetch(`https://sgccmxpdccwikgujbloo.supabase.co/functions/v1/candidates/${candidateId}/tags/${tagData.id}`, {
+              method: 'DELETE',
+              headers: {
+                'Authorization': `Bearer ${session.data.session?.access_token}`,
+                'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNnY2NteHBkY2N3aWtndWpibG9vIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTYxMzg2MjMsImV4cCI6MjA3MTcxNDYyM30.DeQoOqpA9F2Xft5B-U7ucO38CZBYJKnaRxmumnEWaj4'
+              }
+            });
+            
+            if (!response.ok) {
+              const errorData = await response.json();
+              console.error('Failed to remove tag from candidate:', errorData);
             }
-          });
+          }
+        } catch (error) {
+          console.error('Error removing tag from candidate:', error);
         }
       }
 
@@ -292,7 +323,8 @@ export function CandidateListReal() {
       });
 
       // Refresh candidates to show updated tags
-      fetchCandidates();
+      await fetchCandidates();
+      await fetchAvailableTags(); // Refresh available tags to update counts
     } catch (error) {
       console.error('Error updating individual tags:', error)
       toast({
@@ -369,21 +401,21 @@ export function CandidateListReal() {
   // Filter candidates based on search and tag filter
   const filteredCandidates = React.useMemo(() => {
     return candidates.filter(candidate => {
-      const matchesSearch = !searchQuery || 
-        candidate.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        candidate.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (candidate.profile_text && candidate.profile_text.toLowerCase().includes(searchQuery.toLowerCase()))
+      const matchesSearch = !debouncedSearchQuery || 
+        candidate.name.toLowerCase().includes(debouncedSearchQuery.toLowerCase()) ||
+        candidate.email.toLowerCase().includes(debouncedSearchQuery.toLowerCase()) ||
+        (candidate.profile_text && candidate.profile_text.toLowerCase().includes(debouncedSearchQuery.toLowerCase()))
 
       const matchesTagFilter = !tagFilter || tagFilter === "all" || 
         candidate.tags.some(tag => tag.name === tagFilter)
 
       return matchesSearch && matchesTagFilter
     })
-  }, [candidates, searchQuery, tagFilter])
+  }, [candidates, debouncedSearchQuery, tagFilter])
 
   React.useEffect(() => {
     fetchCandidates()
-  }, [searchQuery, tagFilter])
+  }, [debouncedSearchQuery, tagFilter])
 
   if (loading) {
     return <div className="space-y-6">Loading candidates...</div>
@@ -578,7 +610,7 @@ export function CandidateListReal() {
                 <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                 <h3 className="font-semibold mb-2">No candidates found</h3>
                 <p className="text-muted-foreground">
-                  {searchQuery || tagFilter 
+                  {debouncedSearchQuery || tagFilter 
                     ? "Try adjusting your search or filter criteria"
                     : "No candidates have been added yet"
                   }
