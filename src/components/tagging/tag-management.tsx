@@ -22,6 +22,17 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -68,6 +79,10 @@ export function TagManagement() {
   const [newTagName, setNewTagName] = React.useState("")
   const [newTagType, setNewTagType] = React.useState<"personal" | "team" | "global">("personal")
   const [isCreateDialogOpen, setIsCreateDialogOpen] = React.useState(false)
+  const [editTagId, setEditTagId] = React.useState<string | null>(null)
+  const [editTagName, setEditTagName] = React.useState("")
+  const [editTagType, setEditTagType] = React.useState<"personal" | "team" | "global">("personal")
+  const [isEditDialogOpen, setIsEditDialogOpen] = React.useState(false)
 
   const fetchTags = React.useCallback(async () => {
     if (!user) return
@@ -182,6 +197,48 @@ export function TagManagement() {
     } catch (error: any) {
       toast({
         title: "Error merging tags",
+        description: error.message,
+        variant: "destructive"
+      })
+    }
+  }
+
+  const handleEditTag = (tag: TagData) => {
+    setEditTagId(tag.id)
+    setEditTagName(tag.name)
+    setEditTagType(tag.type)
+    setIsEditDialogOpen(true)
+  }
+
+  const updateTag = async () => {
+    if (!user || !editTagId || !editTagName.trim()) return
+
+    try {
+      const { error } = await supabase
+        .from('tags')
+        .update({
+          name: editTagName.trim(),
+          type: editTagType,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', editTagId)
+        .eq('created_by', user.id)
+
+      if (error) throw error
+
+      toast({
+        title: "Tag Updated",
+        description: `Updated tag "${editTagName}" successfully`,
+      })
+
+      setEditTagId(null)
+      setEditTagName("")
+      setEditTagType("personal")
+      setIsEditDialogOpen(false)
+      fetchTags()
+    } catch (error: any) {
+      toast({
+        title: "Error updating tag",
         description: error.message,
         variant: "destructive"
       })
@@ -308,6 +365,50 @@ export function TagManagement() {
                 </Button>
                 <Button onClick={createTag} disabled={!newTagName.trim()}>
                   Create Tag
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+          {/* Edit Tag Dialog */}
+          <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Edit Tag</DialogTitle>
+                <DialogDescription>
+                  Update the tag name and type
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                <div className="space-y-2">
+                  <Label htmlFor="editTagName">Tag Name</Label>
+                  <Input 
+                    id="editTagName" 
+                    placeholder="e.g. Senior Developer"
+                    value={editTagName}
+                    onChange={(e) => setEditTagName(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="editTagType">Tag Type</Label>
+                  <Select value={editTagType} onValueChange={(value: "personal" | "team" | "global") => setEditTagType(value)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select tag type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="personal">Personal</SelectItem>
+                      <SelectItem value="team">Team</SelectItem>
+                      <SelectItem value="global">Global</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={updateTag} disabled={!editTagName.trim()}>
+                  Update Tag
                 </Button>
               </DialogFooter>
             </DialogContent>
@@ -486,16 +587,37 @@ export function TagManagement() {
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center gap-1 justify-end">
-                      <Button variant="ghost" size="sm">
-                        <Edit className="h-3 w-3" />
-                      </Button>
                       <Button 
                         variant="ghost" 
                         size="sm"
-                        onClick={() => handleDeleteTag(tag.id)}
+                        onClick={() => handleEditTag(tag)}
                       >
-                        <Trash2 className="h-3 w-3" />
+                        <Edit className="h-3 w-3" />
                       </Button>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button variant="ghost" size="sm">
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              This will permanently delete the tag "{tag.name}" and remove it from {tag.usage_count} items. This action cannot be undone.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={() => handleDeleteTag(tag.id)}
+                              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            >
+                              Delete Tag
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
                     </div>
                   </TableCell>
                 </TableRow>
