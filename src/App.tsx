@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
 import ProtectedRoute from "@/components/ProtectedRoute";
+import { MainNav } from '@/components/navigation/main-nav';
 import Index from "./pages/Index";
 import Team from "./pages/Team";
 import Settings from "./pages/Settings";
@@ -33,8 +34,11 @@ const App = () => (
             <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
             <Route path="/rule-tagging" element={
               <ProtectedRoute>
-                <div className="container mx-auto py-8">
-                  <RuleBasedTagging />
+                <div className="min-h-screen bg-background">
+                  <MainNav />
+                  <main className="container mx-auto py-6">
+                    <RuleBasedTagging />
+                  </main>
                 </div>
               </ProtectedRoute>
             } />
