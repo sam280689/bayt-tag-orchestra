@@ -413,7 +413,6 @@ export function CandidateListReal() {
                       placeholder="Add tags..."
                       onCreateTag={handleCreateTag}
                       maxTags={15}
-                      context={`candidate:${candidate.id}`}
                     />
                   </div>
                 </div>
