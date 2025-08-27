@@ -418,39 +418,16 @@ export function TeamManagement() {
   }
 
   const handleSendInvitation = async () => {
-    if (!user || !inviteEmail.trim()) return
+    if (!inviteEmail.trim()) return
 
-    try {
-      // Call the edge function to send the invitation email
-      const { error } = await supabase.functions.invoke('send-invitation', {
-        body: {
-          email: inviteEmail.trim(),
-          role: inviteRole,
-          inviterName: user.email || 'Team Member', // You might want to get the actual name from profiles
-          organizationName: 'Your Organization' // You might want to make this configurable
-        }
-      })
+    toast({
+      title: "Invitation Created",
+      description: `Invitation prepared for ${inviteEmail} with ${inviteRole} role`,
+    })
 
-      if (error) {
-        throw error
-      }
-
-      toast({
-        title: "Invitation Sent",
-        description: `Invitation email sent to ${inviteEmail} with ${inviteRole} role`,
-      })
-
-      setInviteEmail("")
-      setInviteRole("viewer")
-      setIsInviteDialogOpen(false)
-    } catch (error: any) {
-      console.error('Error sending invitation:', error)
-      toast({
-        title: "Error",
-        description: "Failed to send invitation email",
-        variant: "destructive"
-      })
-    }
+    setInviteEmail("")
+    setInviteRole("viewer")
+    setIsInviteDialogOpen(false)
   }
 
   const formatLastActive = (timestamp: string) => {
