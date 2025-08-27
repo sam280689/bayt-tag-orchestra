@@ -75,6 +75,11 @@ export function RuleBasedTagging() {
     actions: [{ type: 'add_tag', tag_id: '' }]
   })
 
+  const [testProfile, setTestProfile] = React.useState('')
+  const [testEmail, setTestEmail] = React.useState('')
+  const [testResults, setTestResults] = React.useState<any[]>([])
+  const [isTesting, setIsTesting] = React.useState(false)
+
   React.useEffect(() => {
     fetchData()
   }, [])
@@ -285,6 +290,107 @@ export function RuleBasedTagging() {
         return [
           { value: 'profile_text', label: 'Profile Text' }
         ]
+    }
+  }
+
+  const handleTestRules = async () => {
+    if (!testProfile && !testEmail) {
+      toast({
+        title: "Missing Test Data",
+        description: "Please enter test profile text or email to test rules",
+        variant: "destructive"
+      })
+      return
+    }
+
+    try {
+      setIsTesting(true)
+      setTestResults([])
+
+      const enabledRules = rules.filter(rule => rule.enabled)
+      const matchedRules = []
+
+      for (const rule of enabledRules) {
+        let ruleMatches = true
+
+        // Test each condition in the rule
+        for (const condition of rule.conditions) {
+          let conditionMet = false
+          let testValue = ''
+
+          // Get the value to test based on condition field
+          switch (condition.field) {
+            case 'profile_text':
+              testValue = testProfile.toLowerCase()
+              break
+            case 'name':
+              testValue = testProfile.toLowerCase()
+              break
+            case 'email':
+              testValue = testEmail.toLowerCase()
+              break
+            default:
+              testValue = testProfile.toLowerCase()
+          }
+
+          const conditionValue = condition.value.toLowerCase()
+
+          // Apply the operator
+          switch (condition.operator) {
+            case 'contains':
+              conditionMet = testValue.includes(conditionValue)
+              break
+            case 'equals':
+              conditionMet = testValue === conditionValue
+              break
+            case 'starts_with':
+              conditionMet = testValue.startsWith(conditionValue)
+              break
+            case 'ends_with':
+              conditionMet = testValue.endsWith(conditionValue)
+              break
+          }
+
+          if (!conditionMet) {
+            ruleMatches = false
+            break
+          }
+        }
+
+        if (ruleMatches) {
+          matchedRules.push({
+            rule,
+            tags: rule.actions.map((action: any) => {
+              const tag = tags.find(t => t.id === action.tag_id)
+              return tag || { name: action.tag_name || 'Unknown Tag', type: 'unknown' }
+            })
+          })
+        }
+      }
+
+      setTestResults(matchedRules)
+
+      if (matchedRules.length === 0) {
+        toast({
+          title: "No Rules Matched",
+          description: "No auto-tagging rules would be triggered by this test data",
+        })
+      } else {
+        toast({
+          title: `${matchedRules.length} Rule${matchedRules.length > 1 ? 's' : ''} Matched`,
+          description: `${matchedRules.reduce((sum, match) => sum + match.tags.length, 0)} tag${matchedRules.reduce((sum, match) => sum + match.tags.length, 0) !== 1 ? 's' : ''} would be applied`,
+        })
+      }
+
+    } catch (error) {
+      console.error('Error testing rules:', error)
+      toast({
+        title: "Error",
+        description: "Failed to test rules",
+        variant: "destructive"
+      })
+    } finally {
+      setIsTesting(false)
     }
   }
 
@@ -606,6 +712,8 @@ export function RuleBasedTagging() {
                   <Label htmlFor="test-profile">Test Profile Text</Label>
                   <Textarea
                     id="test-profile"
+                    value={testProfile}
+                    onChange={(e) => setTestProfile(e.target.value)}
                     placeholder="Enter candidate profile text to test against your rules..."
                     rows={4}
                   />
@@ -615,21 +723,57 @@ export function RuleBasedTagging() {
                   <Input
                     id="test-email"
                     type="email"
+                    value={testEmail}
+                    onChange={(e) => setTestEmail(e.target.value)}
                     placeholder="candidate@example.com"
                   />
                 </div>
-                <Button className="gap-2">
+                <Button 
+                  onClick={handleTestRules} 
+                  disabled={isTesting}
+                  className="gap-2"
+                >
                   <Play className="h-4 w-4" />
-                  Test Rules
+                  {isTesting ? "Testing..." : "Test Rules"}
                 </Button>
               </div>
               
-              <div className="mt-6 p-4 bg-muted rounded-lg">
-                <p className="text-sm text-muted-foreground">
-                  Rule testing will show which tags would be automatically applied to a candidate 
-                  with the provided profile information.
-                </p>
-              </div>
+              {testResults.length > 0 ? (
+                <div className="mt-6 space-y-4">
+                  <h4 className="text-sm font-medium">Test Results</h4>
+                  {testResults.map((result, index) => (
+                    <div key={index} className="p-4 border rounded-lg bg-card">
+                      <div className="flex items-center gap-2 mb-3">
+                        <CheckCircle className="h-4 w-4 text-success" />
+                        <span className="font-medium">{result.rule.name}</span>
+                      </div>
+                      <div className="space-y-2">
+                        <p className="text-sm text-muted-foreground">{result.rule.description}</p>
+                        <div className="flex flex-wrap gap-2">
+                          {result.tags.map((tag: any, tagIndex: number) => (
+                            <Badge key={tagIndex} variant="secondary">
+                              {tag.name}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : testProfile || testEmail ? (
+                <div className="mt-6 p-4 bg-muted rounded-lg">
+                  <p className="text-sm text-muted-foreground">
+                    No rules matched the test data. Try different profile text or email to see which rules would trigger.
+                  </p>
+                </div>
+              ) : (
+                <div className="mt-6 p-4 bg-muted rounded-lg">
+                  <p className="text-sm text-muted-foreground">
+                    Rule testing will show which tags would be automatically applied to a candidate 
+                    with the provided profile information.
+                  </p>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
