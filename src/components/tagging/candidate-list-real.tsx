@@ -196,25 +196,37 @@ export function CandidateListReal() {
     }
 
     try {
+      console.log('Starting bulk tagging for', selectedCandidates.length, 'candidates with', bulkTags.length, 'tags');
       const tagIds = []
       const session = await supabase.auth.getSession();
       if (!session.data.session) {
         throw new Error('No authentication session available');
       }
 
+      console.log('Session found, user ID:', session.data.session.user.id);
+
       // Create new tags and get their IDs, or find existing tag IDs
+      console.log('Processing tags:', bulkTags);
       for (const tagName of bulkTags) {
         // First check if tag exists
-        const { data: existingTag } = await supabase
+        console.log('Checking if tag exists:', tagName);
+        const { data: existingTag, error: selectError } = await supabase
           .from('tags')
           .select('id')
           .eq('name', tagName)
           .maybeSingle();
 
+        if (selectError) {
+          console.error('Error checking for existing tag:', selectError);
+          continue;
+        }
+
         if (existingTag) {
+          console.log('Found existing tag:', tagName, 'with ID:', existingTag.id);
           tagIds.push(existingTag.id);
         } else {
           // Create new tag directly in database
+          console.log('Creating new tag:', tagName);
           const { data: newTag, error } = await supabase
             .from('tags')
             .insert({
@@ -227,16 +239,20 @@ export function CandidateListReal() {
             .single();
             
           if (error) {
-            console.error('Error creating tag:', error);
+            console.error('Error creating tag:', tagName, error);
           } else if (newTag) {
+            console.log('Created new tag:', tagName, 'with ID:', newTag.id);
             tagIds.push(newTag.id);
           }
         }
       }
 
       if (tagIds.length === 0) {
+        console.error('No valid tag IDs found for bulk tagging');
         throw new Error('No valid tag IDs found');
       }
+
+      console.log('Final tag IDs for bulk operation:', tagIds);
 
       // Create all candidate_tag combinations
       const candidateTagInserts = []
@@ -250,6 +266,8 @@ export function CandidateListReal() {
         }
       }
 
+      console.log('About to insert', candidateTagInserts.length, 'candidate-tag relationships');
+
       // Insert all candidate_tag relationships (ignore duplicates)
       const { error: insertError } = await supabase
         .from('candidate_tags')
@@ -260,12 +278,26 @@ export function CandidateListReal() {
 
       if (insertError) {
         console.error('Error bulk inserting candidate tags:', insertError);
-        throw insertError;
+        throw new Error(`Failed to insert candidate tags: ${insertError.message}`);
       }
 
+      console.log('Successfully inserted candidate-tag relationships');
+
       // Update usage counts for all affected tags
+      console.log('Updating usage counts for tags:', tagIds);
       for (const tagId of tagIds) {
-        await supabase.rpc('increment_tag_usage', { tag_id: tagId });
+        try {
+          const { error: rpcError } = await supabase.rpc('increment_tag_usage', { tag_id: tagId });
+          if (rpcError) {
+            console.error('RPC error for tag', tagId, ':', rpcError);
+            // Don't throw here, just log the error and continue
+          } else {
+            console.log('Successfully updated usage count for tag:', tagId);
+          }
+        } catch (rpcError) {
+          console.error('Exception calling increment_tag_usage for tag', tagId, ':', rpcError);
+          // Don't throw here, just log and continue
+        }
       }
 
       toast({
