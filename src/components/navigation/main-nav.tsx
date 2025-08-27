@@ -12,8 +12,6 @@ import {
   Menu,
   Tags,
   Workflow,
-  Brain,
-  TrendingUp,
   LogOut
 } from "lucide-react"
 import {
@@ -40,11 +38,6 @@ const navigation = [
     icon: BarChart3,
   },
   {
-    name: "Advanced Analytics",
-    href: "/analytics/advanced",
-    icon: TrendingUp,
-  },
-  {
     name: "Tag Management",
     href: "/tags",
     icon: Tags,
@@ -53,11 +46,6 @@ const navigation = [
     name: "Workflows",
     href: "/workflows",
     icon: Workflow,
-  },
-  {
-    name: "AI Assistant",
-    href: "/ai-assistant",
-    icon: Brain,
   },
   {
     name: "Team",
