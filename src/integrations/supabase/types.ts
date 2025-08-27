@@ -414,7 +414,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      decrement_tag_usage: {
+        Args: { tag_id: string }
+        Returns: undefined
+      }
+      increment_tag_usage: {
+        Args: { tag_id: string }
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never
