@@ -180,6 +180,7 @@ export function WorkflowAutomation() {
   }
 
   const handleExecuteRule = async (ruleId: string) => {
+    console.log('Executing rule:', ruleId)
     setIsExecuting(ruleId)
     try {
       // Create workflow execution record
@@ -194,17 +195,26 @@ export function WorkflowAutomation() {
         .select()
         .single()
 
-      if (error) throw error
+      if (error) {
+        console.error('Error inserting execution:', error)
+        throw error
+      }
+
+      console.log('Created execution:', execution)
 
       // Update rule execution count and status
       const currentRule = rules.find(r => r.id === ruleId)
-      await supabase
+      const updateResult = await supabase
         .from('workflow_rules')
         .update({ 
           execution_count: (currentRule?.executionCount || 0) + 1,
           last_executed: new Date().toISOString()
         })
         .eq('id', ruleId)
+
+      if (updateResult.error) {
+        console.error('Error updating rule:', updateResult.error)
+      }
 
       // Update execution to running
       await supabase
@@ -319,6 +329,7 @@ export function WorkflowAutomation() {
   }
 
   const handleEditRule = async (rule: WorkflowRule) => {
+    console.log('Editing rule:', rule)
     setEditRule({
       id: rule.id,
       name: rule.name,
@@ -331,6 +342,8 @@ export function WorkflowAutomation() {
   }
 
   const handleUpdateRule = async () => {
+    console.log('Updating rule:', editRule)
+    
     if (!editRule.name || !editRule.trigger_type) {
       toast({
         title: "Missing Information",
@@ -351,9 +364,14 @@ export function WorkflowAutomation() {
           actions: editRule.actions
         })
         .eq('id', editRule.id)
+        .eq('created_by', user?.id) // Ensure user can only edit their own rules
 
-      if (error) throw error
+      if (error) {
+        console.error('Update error:', error)
+        throw error
+      }
 
+      console.log('Rule updated successfully')
       toast({
         title: "Rule Updated",
         description: "Workflow rule updated successfully"
@@ -373,13 +391,15 @@ export function WorkflowAutomation() {
       console.error('Error updating rule:', error)
       toast({
         title: "Error",
-        description: "Failed to update workflow rule",
+        description: "Failed to update workflow rule. You can only edit rules you created.",
         variant: "destructive"
       })
     }
   }
 
   const handleDeleteRule = async (ruleId: string) => {
+    console.log('Deleting rule:', ruleId)
+    
     if (!confirm('Are you sure you want to delete this rule? This action cannot be undone.')) {
       return
     }
@@ -391,8 +411,12 @@ export function WorkflowAutomation() {
         .eq('id', ruleId)
         .eq('created_by', user?.id) // Ensure user can only delete their own rules
 
-      if (error) throw error
+      if (error) {
+        console.error('Delete error:', error)
+        throw error
+      }
 
+      console.log('Rule deleted successfully')
       toast({
         title: "Rule Deleted",
         description: "Workflow rule deleted successfully"
