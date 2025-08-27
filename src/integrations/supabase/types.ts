@@ -325,28 +325,37 @@ export type Database = {
       }
       workflow_executions: {
         Row: {
+          approved_at: string | null
+          approved_by: string | null
           completed_at: string | null
           error_message: string | null
           executed_at: string
           id: string
+          requires_approval: boolean | null
           results: Json | null
           rule_id: string
           status: string
         }
         Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
           completed_at?: string | null
           error_message?: string | null
           executed_at?: string
           id?: string
+          requires_approval?: boolean | null
           results?: Json | null
           rule_id: string
           status?: string
         }
         Update: {
+          approved_at?: string | null
+          approved_by?: string | null
           completed_at?: string | null
           error_message?: string | null
           executed_at?: string
           id?: string
+          requires_approval?: boolean | null
           results?: Json | null
           rule_id?: string
           status?: string
@@ -417,6 +426,25 @@ export type Database = {
       decrement_tag_usage: {
         Args: { tag_id: string }
         Returns: undefined
+      }
+      get_conversion_analytics: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          metric_name: string
+          tagged_count: number
+          tagged_rate: number
+          untagged_count: number
+          untagged_rate: number
+        }[]
+      }
+      get_tag_usage_by_period: {
+        Args: { days_back?: number }
+        Returns: {
+          candidates_tagged: number
+          period_start: string
+          tags_created: number
+          tags_used: number
+        }[]
       }
       increment_tag_usage: {
         Args: { tag_id: string }
