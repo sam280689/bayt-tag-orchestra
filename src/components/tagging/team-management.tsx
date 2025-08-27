@@ -372,7 +372,18 @@ export function TeamManagement() {
     if (!user) return
 
     try {
-      // First try to update existing settings
+      // Get the settings ID first, then update the specific record
+      const { data: existingSettings } = await supabase
+        .from('team_settings')
+        .select('id')
+        .limit(1)
+        .single()
+
+      if (!existingSettings?.id) {
+        throw new Error('No team settings found')
+      }
+
+      // Update the specific settings record by ID
       const { error: updateError } = await supabase
         .from('team_settings')
         .update({
@@ -383,6 +394,7 @@ export function TeamManagement() {
           max_tags_per_user: settings.maxTagsPerUser,
           updated_at: new Date().toISOString()
         })
+        .eq('id', existingSettings.id)
 
       if (updateError) {
         console.error('Error updating settings:', updateError)
@@ -409,11 +421,23 @@ export function TeamManagement() {
     if (!user || !inviteEmail.trim()) return
 
     try {
-      // In a real app, this would send an actual invitation email
-      // For now, we'll just show a success message
+      // Call the edge function to send the invitation email
+      const { error } = await supabase.functions.invoke('send-invitation', {
+        body: {
+          email: inviteEmail.trim(),
+          role: inviteRole,
+          inviterName: user.email || 'Team Member', // You might want to get the actual name from profiles
+          organizationName: 'Your Organization' // You might want to make this configurable
+        }
+      })
+
+      if (error) {
+        throw error
+      }
+
       toast({
         title: "Invitation Sent",
-        description: `Invitation sent to ${inviteEmail} with ${inviteRole} role`,
+        description: `Invitation email sent to ${inviteEmail} with ${inviteRole} role`,
       })
 
       setInviteEmail("")
@@ -423,7 +447,7 @@ export function TeamManagement() {
       console.error('Error sending invitation:', error)
       toast({
         title: "Error",
-        description: "Failed to send invitation",
+        description: "Failed to send invitation email",
         variant: "destructive"
       })
     }
