@@ -220,13 +220,23 @@ async function executeActions(actions: any[], candidateId: string, supabase: any
           .single()
 
         if (!existingTag) {
-          // Apply the tag
+          // Apply the tag - use a system user approach
+          // For system-created tags, we'll use the first admin user or the rule creator
+          const { data: adminUser } = await supabase
+            .from('team_members')
+            .select('user_id')
+            .eq('role', 'admin')
+            .limit(1)
+            .single()
+
+          const systemUserId = adminUser?.user_id || 'b1d5f92a-166f-49da-8692-b4ed5a323631' // fallback to known admin
+
           const { error: tagError } = await supabase
             .from('candidate_tags')
             .insert({
               candidate_id: candidateId,
               tag_id: action.tag_id,
-              created_by: null // System created
+              created_by: systemUserId // Use system user instead of null
             })
 
           if (!tagError) {
