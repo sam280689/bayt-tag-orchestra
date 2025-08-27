@@ -30,7 +30,6 @@ const navigation = [
     name: "Candidates",
     href: "/candidates",
     icon: Users,
-    badge: "24",
   },
   {
     name: "Analytics",
@@ -94,11 +93,6 @@ export function MainNav() {
                 >
                   <item.icon className="h-4 w-4" />
                   {item.name}
-                  {item.badge && (
-                    <Badge variant={isActive ? "secondary" : "outline"} className="ml-1">
-                      {item.badge}
-                    </Badge>
-                  )}
                 </Link>
               )
             })}
@@ -183,11 +177,6 @@ export function MainNav() {
                   >
                     <item.icon className="h-4 w-4" />
                     {item.name}
-                    {item.badge && (
-                      <Badge variant="outline" className="ml-auto">
-                        {item.badge}
-                      </Badge>
-                    )}
                   </Link>
                 </DropdownMenuItem>
               ))}

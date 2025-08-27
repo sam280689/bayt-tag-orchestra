@@ -1,6 +1,6 @@
 import * as React from "react"
 import { useLocation } from "react-router-dom"
-import { CandidateList } from '@/components/tagging/candidate-list';
+import { CandidateListReal as CandidateList } from '@/components/tagging/candidate-list-real';
 import { AnalyticsDashboard } from '@/components/tagging/analytics-dashboard';
 import { AdvancedAnalytics } from '@/components/tagging/advanced-analytics';
 import { TagManagement } from '@/components/tagging/tag-management';

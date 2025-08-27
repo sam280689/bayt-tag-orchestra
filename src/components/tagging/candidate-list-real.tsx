@@ -25,7 +25,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Search, Download, Tag, Users, CheckCircle2 } from "lucide-react"
+import { Search, Download, Tag, Users, CheckCircle2, FileSpreadsheet, FileText } from "lucide-react"
+import { exportToExcel, exportToPDF, type ExportCandidate } from "@/lib/export-utils"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 
 interface CandidateTag {
   id: string
@@ -72,16 +79,28 @@ export function CandidateListReal() {
     try {
       setLoading(true)
       
-      const response = await supabase.functions.invoke('candidates', {
-        body: {
-          search: searchQuery,
-          tags: tagFilter ? [tagFilter] : []
+      // Build query parameters
+      const params = new URLSearchParams();
+      if (searchQuery) params.append('search', searchQuery);
+      if (tagFilter) params.append('tags[]', tagFilter);
+      
+      // Use fetch directly for GET request with query parameters
+      const url = `https://sgccmxpdccwikgujbloo.supabase.co/functions/v1/candidates?${params.toString()}`;
+      const session = await supabase.auth.getSession();
+      
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${session.data.session?.access_token}`,
+          'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNnY2NteHBkY2N3aWtndWpibG9vIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTYxMzg2MjMsImV4cCI6MjA3MTcxNDYyM30.DeQoOqpA9F2Xft5B-U7ucO38CZBYJKnaRxmumnEWaj4',
+          'Content-Type': 'application/json'
         }
-      })
+      });
 
-      if (response.error) throw response.error
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Failed to fetch candidates');
 
-      setCandidates(response.data.candidates || [])
+      setCandidates(data.candidates || [])
     } catch (error) {
       console.error('Error fetching candidates:', error)
       toast({
@@ -143,33 +162,39 @@ export function CandidateListReal() {
     }
 
     try {
-      // First, create any new tags that don't exist
-      const newTags = bulkTags.filter(tag => 
-        !availableTags.some(availableTag => availableTag.value === tag)
-      )
-
       const tagIds = []
 
-      // Create new tags
-      for (const tagName of newTags) {
-        const response = await supabase.functions.invoke('tags', {
-          body: { name: tagName, type: 'personal' }
-        })
-        if (response.data?.tag) {
-          tagIds.push(response.data.tag.id)
+      // Create new tags and get their IDs, or find existing tag IDs
+      for (const tagName of bulkTags) {
+        // First check if tag exists
+        const { data: existingTag } = await supabase
+          .from('tags')
+          .select('id')
+          .eq('name', tagName)
+          .maybeSingle();
+
+        if (existingTag) {
+          tagIds.push(existingTag.id);
+        } else {
+          // Create new tag
+          const response = await supabase.functions.invoke('tags', {
+            body: { name: tagName, type: 'personal' }
+          });
+          if (response.data?.tag?.id) {
+            tagIds.push(response.data.tag.id);
+          }
         }
       }
 
-      // Get existing tag IDs
-      const existingTagIds = availableTags
-        .filter(tag => bulkTags.includes(tag.value))
-        .map(tag => tag.value) // We'll need to get actual IDs
+      if (tagIds.length === 0) {
+        throw new Error('No valid tag IDs found');
+      }
 
-      // For now, we'll simulate the bulk operation
+      // Apply bulk tagging
       const response = await supabase.functions.invoke('bulk-tag', {
         body: {
           candidateIds: selectedCandidates,
-          tagIds: [...tagIds, ...existingTagIds]
+          tagIds: tagIds
         }
       })
 
@@ -184,6 +209,7 @@ export function CandidateListReal() {
       setBulkTags([])
       setSelectedCandidates([])
       fetchCandidates() // Refresh candidates
+      fetchAvailableTags() // Refresh available tags
     } catch (error) {
       console.error('Error in bulk tagging:', error)
       toast({
@@ -196,12 +222,77 @@ export function CandidateListReal() {
 
   const handleIndividualTagChange = async (candidateId: string, tags: string[]) => {
     try {
-      // This would require implementing individual tag application
-      // For now, we'll show a toast
+      // Get current candidate tags to determine which to add/remove
+      const candidate = candidates.find(c => c.id === candidateId);
+      if (!candidate) return;
+
+      const currentTagNames = candidate.tags.map(t => t.name);
+      const tagsToAdd = tags.filter(tag => !currentTagNames.includes(tag));
+      const tagsToRemove = currentTagNames.filter(tag => !tags.includes(tag));
+
+      // Create new tags if needed and get their IDs
+      for (const tagName of tagsToAdd) {
+        let tagId = availableTags.find(t => t.value === tagName)?.value;
+        
+        if (!tagId) {
+          // Create new tag
+          const response = await supabase.functions.invoke('tags', {
+            body: { name: tagName, type: 'personal' }
+          });
+          if (response.data?.tag) {
+            tagId = response.data.tag.id;
+            await fetchAvailableTags(); // Refresh available tags
+          }
+        } else {
+          // Get actual tag ID from database
+          const { data: tagData } = await supabase
+            .from('tags')
+            .select('id')
+            .eq('name', tagName)
+            .single();
+          tagId = tagData?.id;
+        }
+
+        if (tagId) {
+          // Apply tag to candidate
+          const response = await fetch(`https://sgccmxpdccwikgujbloo.supabase.co/functions/v1/candidates/${candidateId}/tags`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+              'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNnY2NteHBkY2N3aWtndWpibG9vIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTYxMzg2MjMsImV4cCI6MjA3MTcxNDYyM30.DeQoOqpA9F2Xft5B-U7ucO38CZBYJKnaRxmumnEWaj4',
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ tagId })
+          });
+        }
+      }
+
+      // Remove tags that were unchecked
+      for (const tagName of tagsToRemove) {
+        const { data: tagData } = await supabase
+          .from('tags')
+          .select('id')
+          .eq('name', tagName)
+          .single();
+          
+        if (tagData?.id) {
+          const response = await fetch(`https://sgccmxpdccwikgujbloo.supabase.co/functions/v1/candidates/${candidateId}/tags/${tagData.id}`, {
+            method: 'DELETE',
+            headers: {
+              'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+              'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNnY2NteHBkY2N3aWtndWpibG9vIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTYxMzg2MjMsImV4cCI6MjA3MTcxNDYyM30.DeQoOqpA9F2Xft5B-U7ucO38CZBYJKnaRxmumnEWaj4'
+            }
+          });
+        }
+      }
+
       toast({
         title: "Tags Updated",
-        description: `Updated tags for candidate`,
-      })
+        description: `Updated tags for ${candidate.name}`,
+      });
+
+      // Refresh candidates to show updated tags
+      fetchCandidates();
     } catch (error) {
       console.error('Error updating individual tags:', error)
       toast({
@@ -227,6 +318,51 @@ export function CandidateListReal() {
     } catch (error) {
       console.error('Error creating tag:', error)
       throw error
+    }
+  }
+
+  const handleExport = (format: 'excel' | 'pdf') => {
+    const candidatesToExport = selectedCandidates.length > 0 
+      ? filteredCandidates.filter(c => selectedCandidates.includes(c.id))
+      : filteredCandidates;
+
+    if (candidatesToExport.length === 0) {
+      toast({
+        title: "No Data to Export",
+        description: "No candidates to export",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const exportData: ExportCandidate[] = candidatesToExport.map(candidate => ({
+      name: candidate.name,
+      email: candidate.email,
+      profile_text: candidate.profile_text,
+      created_at: candidate.created_at,
+      tags: candidate.tags.map(t => t.name).join(', ')
+    }));
+
+    const filename = `candidates_${new Date().toISOString().split('T')[0]}`;
+    
+    try {
+      if (format === 'excel') {
+        exportToExcel(exportData, filename);
+      } else {
+        exportToPDF(exportData, filename);
+      }
+
+      toast({
+        title: "Export Successful",
+        description: `Exported ${exportData.length} candidates to ${format.toUpperCase()}`,
+      });
+    } catch (error) {
+      console.error('Export error:', error);
+      toast({
+        title: "Export Failed",
+        description: "Failed to export candidates",
+        variant: "destructive"
+      });
     }
   }
 
@@ -263,10 +399,24 @@ export function CandidateListReal() {
             Manage and tag candidates for better organization
           </p>
         </div>
-        <Button>
-          <Download className="h-4 w-4 mr-2" />
-          Export Selected
-        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button>
+              <Download className="h-4 w-4 mr-2" />
+              Export {selectedCandidates.length > 0 ? 'Selected' : 'All'}
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => handleExport('excel')}>
+              <FileSpreadsheet className="h-4 w-4 mr-2" />
+              Export to Excel
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => handleExport('pdf')}>
+              <FileText className="h-4 w-4 mr-2" />
+              Export to PDF
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       {/* Search and Filters */}
