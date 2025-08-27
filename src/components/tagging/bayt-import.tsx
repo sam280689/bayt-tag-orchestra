@@ -79,15 +79,33 @@ export function BaytImportDialog({ isOpen, onClose, onImportComplete }: BaytImpo
         manualForm.bayt_profile_url && `Bayt Profile: ${manualForm.bayt_profile_url}`
       ].filter(Boolean).join('\n\n')
 
-      const { error } = await supabase
+      const { data: insertedCandidate, error } = await supabase
         .from('candidates')
         .insert({
           name: manualForm.name,
           email: manualForm.email,
           profile_text: profileText
         })
+        .select('id')
+        .single()
 
       if (error) throw error
+
+      // Trigger workflow rules for auto-tagging
+      if (insertedCandidate?.id) {
+        try {
+          const response = await supabase.functions.invoke('execute-workflow', {
+            body: { 
+              candidate_id: insertedCandidate.id,
+              trigger_type: 'candidate_added'
+            }
+          })
+          console.log('Workflow execution response:', response)
+        } catch (workflowError) {
+          console.error('Workflow execution failed:', workflowError)
+          // Don't fail the import if workflow fails
+        }
+      }
 
       toast({
         title: "Success",
@@ -183,11 +201,30 @@ export function BaytImportDialog({ isOpen, onClose, onImportComplete }: BaytImpo
           }
         })
 
-      const { error } = await supabase
+      const { data: insertedCandidates, error } = await supabase
         .from('candidates')
         .insert(candidatesToInsert)
+        .select('id')
 
       if (error) throw error
+
+      // Trigger workflow rules for each inserted candidate
+      if (insertedCandidates && insertedCandidates.length > 0) {
+        for (const candidate of insertedCandidates) {
+          try {
+            const response = await supabase.functions.invoke('execute-workflow', {
+              body: { 
+                candidate_id: candidate.id,
+                trigger_type: 'candidate_added'
+              }
+            })
+            console.log('Workflow execution response for candidate:', candidate.id, response)
+          } catch (workflowError) {
+            console.error('Workflow execution failed for candidate:', candidate.id, workflowError)
+            // Don't fail the import if workflow fails
+          }
+        }
+      }
 
       toast({
         title: "Success",

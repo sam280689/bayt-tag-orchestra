@@ -66,3 +66,6 @@ verify_jwt = true
 
 [functions.dashboard]
 verify_jwt = false
+
+[functions.execute-workflow]
+verify_jwt = false
