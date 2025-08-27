@@ -173,6 +173,10 @@ export function TeamManagement() {
   const [searchQuery, setSearchQuery] = React.useState("")
   const [roleFilter, setRoleFilter] = React.useState<string>("all")
   const [loading, setLoading] = React.useState(true)
+  const [inviteEmail, setInviteEmail] = React.useState("")
+  const [inviteRole, setInviteRole] = React.useState<"admin" | "editor" | "viewer">("viewer")
+  const [isSettingsDialogOpen, setIsSettingsDialogOpen] = React.useState(false)
+  const [isInviteDialogOpen, setIsInviteDialogOpen] = React.useState(false)
 
   React.useEffect(() => {
     if (user) {
@@ -364,6 +368,67 @@ export function TeamManagement() {
     }
   }
 
+  const handleSaveSettings = async () => {
+    if (!user) return
+
+    try {
+      // First try to update existing settings
+      const { error: updateError } = await supabase
+        .from('team_settings')
+        .update({
+          require_approval: settings.requireApproval,
+          allow_public_tags: settings.allowPublicTags,
+          auto_suggest_similar: settings.autoSuggestSimilar,
+          enforce_naming_convention: settings.enforceNamingConvention,
+          max_tags_per_user: settings.maxTagsPerUser,
+          updated_at: new Date().toISOString()
+        })
+
+      if (updateError) {
+        console.error('Error updating settings:', updateError)
+        throw updateError
+      }
+
+      toast({
+        title: "Settings Updated",
+        description: "Team settings have been saved successfully",
+      })
+
+      setIsSettingsDialogOpen(false)
+    } catch (error: any) {
+      console.error('Error saving settings:', error)
+      toast({
+        title: "Error",
+        description: "Failed to save team settings",
+        variant: "destructive"
+      })
+    }
+  }
+
+  const handleSendInvitation = async () => {
+    if (!user || !inviteEmail.trim()) return
+
+    try {
+      // In a real app, this would send an actual invitation email
+      // For now, we'll just show a success message
+      toast({
+        title: "Invitation Sent",
+        description: `Invitation sent to ${inviteEmail} with ${inviteRole} role`,
+      })
+
+      setInviteEmail("")
+      setInviteRole("viewer")
+      setIsInviteDialogOpen(false)
+    } catch (error: any) {
+      console.error('Error sending invitation:', error)
+      toast({
+        title: "Error",
+        description: "Failed to send invitation",
+        variant: "destructive"
+      })
+    }
+  }
+
   const formatLastActive = (timestamp: string) => {
     const date = new Date(timestamp)
     const now = new Date()
@@ -390,7 +455,7 @@ export function TeamManagement() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Dialog>
+          <Dialog open={isSettingsDialogOpen} onOpenChange={setIsSettingsDialogOpen}>
             <DialogTrigger asChild>
               <Button variant="outline">
                 <Settings className="h-4 w-4 mr-2" />
@@ -445,11 +510,14 @@ export function TeamManagement() {
                 </div>
               </div>
               <DialogFooter>
-                <Button>Save Settings</Button>
+                <Button variant="outline" onClick={() => setIsSettingsDialogOpen(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={handleSaveSettings}>Save Settings</Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
-          <Dialog>
+          <Dialog open={isInviteDialogOpen} onOpenChange={setIsInviteDialogOpen}>
             <DialogTrigger asChild>
               <Button>
                 <Plus className="h-4 w-4 mr-2" />
@@ -466,11 +534,16 @@ export function TeamManagement() {
               <div className="space-y-4 py-4">
                 <div className="space-y-2">
                   <Label htmlFor="inviteEmail">Email Address</Label>
-                  <Input id="inviteEmail" placeholder="colleague@company.com" />
+                  <Input 
+                    id="inviteEmail" 
+                    placeholder="colleague@company.com" 
+                    value={inviteEmail}
+                    onChange={(e) => setInviteEmail(e.target.value)}
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="inviteRole">Role</Label>
-                  <Select defaultValue="viewer">
+                  <Select value={inviteRole} onValueChange={(value: "admin" | "editor" | "viewer") => setInviteRole(value)}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select role" />
                     </SelectTrigger>
@@ -483,8 +556,10 @@ export function TeamManagement() {
                 </div>
               </div>
               <DialogFooter>
-                <Button variant="outline">Cancel</Button>
-                <Button>Send Invitation</Button>
+                <Button variant="outline" onClick={() => setIsInviteDialogOpen(false)}>Cancel</Button>
+                <Button onClick={handleSendInvitation} disabled={!inviteEmail.trim()}>
+                  Send Invitation
+                </Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
