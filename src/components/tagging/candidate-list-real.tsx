@@ -348,18 +348,35 @@ export function CandidateListReal() {
 
   const handleCreateTag = async (tagName: string) => {
     try {
+      const session = await supabase.auth.getSession();
+      if (!session.data.session) {
+        throw new Error('No authentication session available');
+      }
+
       const response = await supabase.functions.invoke('tags', {
         body: { name: tagName, type: 'personal' }
       })
 
-      if (response.error) throw response.error
+      if (response.error) {
+        console.error('Error creating tag via function:', response.error);
+        throw response.error;
+      }
+
+      if (!response.data?.tag) {
+        throw new Error('Invalid response from tag creation');
+      }
 
       // Refresh available tags
-      fetchAvailableTags()
+      await fetchAvailableTags()
       
       return tagName
     } catch (error) {
       console.error('Error creating tag:', error)
+      toast({
+        title: "Error",
+        description: "Failed to create tag. Please try again.",
+        variant: "destructive"
+      });
       throw error
     }
   }

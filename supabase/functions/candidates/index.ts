@@ -192,6 +192,9 @@ Deno.serve(async (req) => {
         })
       }
 
+      // Decrement tag usage count
+      await supabase.rpc('decrement_tag_usage', { tag_id: tagId })
+
       return new Response(JSON.stringify({ success: true }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       })
