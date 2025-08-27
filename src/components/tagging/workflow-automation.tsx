@@ -67,9 +67,20 @@ export function WorkflowAutomation() {
   const [loading, setLoading] = React.useState(true)
   const [selectedTags, setSelectedTags] = React.useState<string[]>([])
   const [isCreateDialogOpen, setIsCreateDialogOpen] = React.useState(false)
+  const [isEditDialogOpen, setIsEditDialogOpen] = React.useState(false)
   
   // Form state for creating rules
   const [newRule, setNewRule] = React.useState({
+    name: "",
+    description: "",
+    trigger_type: "",
+    conditions: [] as any[],
+    actions: [] as any[]
+  })
+
+  // Form state for editing rules
+  const [editRule, setEditRule] = React.useState({
+    id: "",
     name: "",
     description: "",
     trigger_type: "",
@@ -176,21 +187,30 @@ export function WorkflowAutomation() {
         .from('workflow_executions')
         .insert([{
           rule_id: ruleId,
-          status: 'running'
+          status: 'pending',
+          results: null,
+          error_message: null
         }])
         .select()
         .single()
 
       if (error) throw error
 
-      // Update rule execution count
+      // Update rule execution count and status
+      const currentRule = rules.find(r => r.id === ruleId)
       await supabase
         .from('workflow_rules')
         .update({ 
-          execution_count: rules.find(r => r.id === ruleId)?.executionCount + 1,
+          execution_count: (currentRule?.executionCount || 0) + 1,
           last_executed: new Date().toISOString()
         })
         .eq('id', ruleId)
+
+      // Update execution to running
+      await supabase
+        .from('workflow_executions')
+        .update({ status: 'running' })
+        .eq('id', execution.id)
 
       // Simulate execution (in real app, this would trigger actual workflow)
       setTimeout(async () => {
@@ -199,7 +219,7 @@ export function WorkflowAutomation() {
           .update({
             status: 'completed',
             completed_at: new Date().toISOString(),
-            results: { message: 'Workflow executed successfully' }
+            results: { message: 'Workflow executed successfully', processed: 1 }
           })
           .eq('id', execution.id)
 
@@ -212,6 +232,7 @@ export function WorkflowAutomation() {
       })
       
     } catch (error) {
+      console.error('Error executing rule:', error)
       toast({
         title: "Execution Failed",
         description: error instanceof Error ? error.message : "Unknown error",
@@ -297,12 +318,78 @@ export function WorkflowAutomation() {
     }
   }
 
+  const handleEditRule = async (rule: WorkflowRule) => {
+    setEditRule({
+      id: rule.id,
+      name: rule.name,
+      description: rule.description,
+      trigger_type: rule.trigger.type,
+      conditions: rule.trigger.conditions,
+      actions: rule.actions
+    })
+    setIsEditDialogOpen(true)
+  }
+
+  const handleUpdateRule = async () => {
+    if (!editRule.name || !editRule.trigger_type) {
+      toast({
+        title: "Missing Information",
+        description: "Please provide rule name and trigger type",
+        variant: "destructive"
+      })
+      return
+    }
+
+    try {
+      const { error } = await supabase
+        .from('workflow_rules')
+        .update({
+          name: editRule.name,
+          description: editRule.description,
+          trigger_type: editRule.trigger_type,
+          conditions: editRule.conditions,
+          actions: editRule.actions
+        })
+        .eq('id', editRule.id)
+
+      if (error) throw error
+
+      toast({
+        title: "Rule Updated",
+        description: "Workflow rule updated successfully"
+      })
+
+      setIsEditDialogOpen(false)
+      setEditRule({
+        id: "",
+        name: "",
+        description: "",
+        trigger_type: "",
+        conditions: [],
+        actions: []
+      })
+      fetchWorkflowData()
+    } catch (error) {
+      console.error('Error updating rule:', error)
+      toast({
+        title: "Error",
+        description: "Failed to update workflow rule",
+        variant: "destructive"
+      })
+    }
+  }
+
   const handleDeleteRule = async (ruleId: string) => {
+    if (!confirm('Are you sure you want to delete this rule? This action cannot be undone.')) {
+      return
+    }
+
     try {
       const { error } = await supabase
         .from('workflow_rules')
         .delete()
         .eq('id', ruleId)
+        .eq('created_by', user?.id) // Ensure user can only delete their own rules
 
       if (error) throw error
 
@@ -315,7 +402,7 @@ export function WorkflowAutomation() {
       console.error('Error deleting rule:', error)
       toast({
         title: "Error",
-        description: "Failed to delete workflow rule",
+        description: "Failed to delete workflow rule. You can only delete rules you created.",
         variant: "destructive"
       })
     }
@@ -551,9 +638,83 @@ export function WorkflowAutomation() {
                 <Button onClick={handleCreateRule}>Create Rule</Button>
               </DialogFooter>
             </DialogContent>
-          </Dialog>
+            </Dialog>
+
+            {/* Edit Rule Dialog */}
+            <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+              <DialogContent className="max-w-2xl">
+                <DialogHeader>
+                  <DialogTitle>Edit Workflow Rule</DialogTitle>
+                  <DialogDescription>
+                    Update the automated workflow rule configuration
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="editRuleName">Rule Name</Label>
+                      <Input 
+                        id="editRuleName" 
+                        placeholder="e.g. Auto-merge duplicates"
+                        value={editRule.name}
+                        onChange={(e) => setEditRule(prev => ({ ...prev, name: e.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="editTriggerType">Trigger Type</Label>
+                      <Select value={editRule.trigger_type} onValueChange={(value) => setEditRule(prev => ({ ...prev, trigger_type: value }))}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select trigger" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="tag_created">Tag Created</SelectItem>
+                          <SelectItem value="schedule">Scheduled</SelectItem>
+                          <SelectItem value="manual">Manual</SelectItem>
+                          <SelectItem value="tag_usage_threshold">Usage Threshold</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="editDescription">Description</Label>
+                    <Textarea 
+                      id="editDescription" 
+                      placeholder="Describe what this rule does..."
+                      rows={3}
+                      value={editRule.description}
+                      onChange={(e) => setEditRule(prev => ({ ...prev, description: e.target.value }))}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Actions</Label>
+                    <div className="border rounded-lg p-4 space-y-2">
+                      <Select>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select action type" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="send_notification">Send Notification</SelectItem>
+                          <SelectItem value="auto_tag">Auto Tag</SelectItem>
+                          <SelectItem value="merge_tags">Merge Tags</SelectItem>
+                          <SelectItem value="archive_tag">Archive Tag</SelectItem>
+                          <SelectItem value="create_report">Create Report</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Button variant="outline" size="sm">
+                        <Plus className="h-3 w-3 mr-1" />
+                        Add Action
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>Cancel</Button>
+                  <Button onClick={handleUpdateRule}>Update Rule</Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </div>
         </div>
-      </div>
 
       <Tabs defaultValue="rules" className="space-y-4">
         <TabsList className="grid w-full grid-cols-4">
@@ -642,7 +803,7 @@ export function WorkflowAutomation() {
                           </Tooltip>
                           <Tooltip>
                             <TooltipTrigger asChild>
-                              <Button variant="ghost" size="sm" onClick={() => setSelectedRule(rule)}>
+                              <Button variant="ghost" size="sm" onClick={() => handleEditRule(rule)}>
                                 <Edit className="h-3 w-3" />
                               </Button>
                             </TooltipTrigger>
