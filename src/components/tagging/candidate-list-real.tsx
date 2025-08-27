@@ -82,36 +82,55 @@ export function CandidateListReal() {
   const fetchCandidates = async () => {
     try {
       setLoading(true)
+      console.log('Fetching candidates with search:', debouncedSearchQuery, 'and tag filter:', tagFilter);
       
-      // Build query parameters
-      const params = new URLSearchParams();
-      if (debouncedSearchQuery) params.append('search', debouncedSearchQuery);
-      if (tagFilter && tagFilter !== "all") params.append('tags[]', tagFilter);
-      
-      // Use fetch directly for GET request with query parameters
-      const url = `https://sgccmxpdccwikgujbloo.supabase.co/functions/v1/candidates?${params.toString()}`;
-      const session = await supabase.auth.getSession();
-      
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${session.data.session?.access_token}`,
-          'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNnY2NteHBkY2N3aWtndWpibG9vIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTYxMzg2MjMsImV4cCI6MjA3MTcxNDYyM30.DeQoOqpA9F2Xft5B-U7ucO38CZBYJKnaRxmumnEWaj4',
-          'Content-Type': 'application/json'
-        }
-      });
+      // Use direct database query to get candidates with their tags
+      let query = supabase
+        .from('candidates')
+        .select(`
+          *,
+          candidate_tags (
+            id,
+            tag_id,
+            created_at,
+            tags (
+              id,
+              name,
+              type
+            )
+          )
+        `)
+        .order('created_at', { ascending: false });
 
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Failed to fetch candidates');
+      if (debouncedSearchQuery) {
+        query = query.or(`name.ilike.%${debouncedSearchQuery}%,email.ilike.%${debouncedSearchQuery}%,profile_text.ilike.%${debouncedSearchQuery}%`);
+      }
 
-      setCandidates(data.candidates || [])
+      const { data: candidatesData, error } = await query;
+
+      if (error) {
+        console.error('Error fetching candidates:', error);
+        setCandidates([]);
+        return;
+      }
+
+      console.log('Raw candidates data:', candidatesData);
+
+      // Transform the data to match expected format
+      const transformedCandidates = (candidatesData || []).map(candidate => ({
+        ...candidate,
+        tags: candidate.candidate_tags?.map((ct: any) => ({
+          id: ct.tags?.id,
+          name: ct.tags?.name,
+          type: ct.tags?.type
+        })) || []
+      }));
+
+      console.log('Transformed candidates:', transformedCandidates);
+      setCandidates(transformedCandidates);
     } catch (error) {
       console.error('Error fetching candidates:', error)
-      toast({
-        title: "Error",
-        description: "Failed to load candidates",
-        variant: "destructive"
-      })
+      setCandidates([])
     } finally {
       setLoading(false)
     }
@@ -119,33 +138,33 @@ export function CandidateListReal() {
 
   const fetchAvailableTags = async () => {
     try {
-      const session = await supabase.auth.getSession();
-      if (!session.data.session) {
-        console.log('No session available for fetching tags');
+      console.log('Fetching available tags...');
+      
+      // First try direct query to tags table
+      const { data: tags, error } = await supabase
+        .from('tags')
+        .select('*')
+        .order('usage_count', { ascending: false });
+      
+      if (error) {
+        console.error('Error fetching tags from database:', error);
+        setAvailableTags([]);
         return;
       }
 
-      const response = await supabase.functions.invoke('tags', {
-        body: {}
-      })
-
-      if (response.error) {
-        console.error('Error response from tags function:', response.error);
-        throw response.error;
-      }
-
-      const tagSuggestions: TagSuggestion[] = response.data?.tags?.map((tag: any) => ({
+      console.log('Tags data from database:', tags);
+      
+      const tagOptions = (tags || []).map((tag: any) => ({
         value: tag.name,
         label: tag.name,
         type: tag.type,
-        count: tag.usage_count
-      })) || []
-
-      setAvailableTags(tagSuggestions)
+        count: tag.usage_count || 0
+      }));
+      
+      setAvailableTags(tagOptions);
     } catch (error) {
-      console.error('Error fetching tags:', error)
-      // Set empty array on error to prevent UI issues
-      setAvailableTags([])
+      console.error('Error fetching tags:', error);
+      setAvailableTags([]);
     }
   }
 
@@ -178,6 +197,10 @@ export function CandidateListReal() {
 
     try {
       const tagIds = []
+      const session = await supabase.auth.getSession();
+      if (!session.data.session) {
+        throw new Error('No authentication session available');
+      }
 
       // Create new tags and get their IDs, or find existing tag IDs
       for (const tagName of bulkTags) {
@@ -191,12 +214,22 @@ export function CandidateListReal() {
         if (existingTag) {
           tagIds.push(existingTag.id);
         } else {
-          // Create new tag
-          const response = await supabase.functions.invoke('tags', {
-            body: { name: tagName, type: 'personal' }
-          });
-          if (response.data?.tag?.id) {
-            tagIds.push(response.data.tag.id);
+          // Create new tag directly in database
+          const { data: newTag, error } = await supabase
+            .from('tags')
+            .insert({
+              name: tagName,
+              type: 'personal',
+              created_by: session.data.session.user.id,
+              usage_count: 0
+            })
+            .select('id')
+            .single();
+            
+          if (error) {
+            console.error('Error creating tag:', error);
+          } else if (newTag) {
+            tagIds.push(newTag.id);
           }
         }
       }
@@ -205,15 +238,35 @@ export function CandidateListReal() {
         throw new Error('No valid tag IDs found');
       }
 
-      // Apply bulk tagging
-      const response = await supabase.functions.invoke('bulk-tag', {
-        body: {
-          candidateIds: selectedCandidates,
-          tagIds: tagIds
+      // Create all candidate_tag combinations
+      const candidateTagInserts = []
+      for (const candidateId of selectedCandidates) {
+        for (const tagId of tagIds) {
+          candidateTagInserts.push({
+            candidate_id: candidateId,
+            tag_id: tagId,
+            created_by: session.data.session.user.id
+          })
         }
-      })
+      }
 
-      if (response.error) throw response.error
+      // Insert all candidate_tag relationships (ignore duplicates)
+      const { error: insertError } = await supabase
+        .from('candidate_tags')
+        .upsert(candidateTagInserts, { 
+          onConflict: 'candidate_id,tag_id',
+          ignoreDuplicates: true 
+        });
+
+      if (insertError) {
+        console.error('Error bulk inserting candidate tags:', insertError);
+        throw insertError;
+      }
+
+      // Update usage counts for all affected tags
+      for (const tagId of tagIds) {
+        await supabase.rpc('increment_tag_usage', { tag_id: tagId });
+      }
 
       toast({
         title: "Bulk Tagging Complete",
@@ -245,86 +298,87 @@ export function CandidateListReal() {
       const tagsToAdd = tags.filter(tag => !currentTagNames.includes(tag));
       const tagsToRemove = currentTagNames.filter(tag => !tags.includes(tag));
 
-      // Create new tags if needed and get their IDs
+      const session = await supabase.auth.getSession();
+      if (!session.data.session) {
+        throw new Error('No authentication session available');
+      }
+
+      // Add new tags
       for (const tagName of tagsToAdd) {
         let tagId: string | undefined;
         
-        // First check if tag exists in our available tags
-        const existingTag = availableTags.find(t => t.value === tagName);
+        // First check if tag exists
+        const { data: existingTag } = await supabase
+          .from('tags')
+          .select('id')
+          .eq('name', tagName)
+          .maybeSingle();
+          
         if (existingTag) {
-          // Get the actual tag ID from database
-          const { data: tagData } = await supabase
-            .from('tags')
-            .select('id')
-            .eq('name', tagName)
-            .single();
-          tagId = tagData?.id;
+          tagId = existingTag.id;
         } else {
-          // Create new tag via edge function
-          try {
-            const response = await supabase.functions.invoke('tags', {
-              body: { name: tagName, type: 'personal' }
-            });
-            if (response.data?.tag?.id) {
-              tagId = response.data.tag.id;
-              // Refresh available tags
-              await fetchAvailableTags();
-            }
-          } catch (error) {
-            console.error('Error creating tag via function:', error);
+          // Create new tag
+          const { data: newTag, error } = await supabase
+            .from('tags')
+            .insert({
+              name: tagName,
+              type: 'personal',
+              created_by: session.data.session.user.id,
+              usage_count: 0
+            })
+            .select('id')
+            .single();
+            
+          if (error) {
+            console.error('Error creating tag:', error);
+          } else if (newTag) {
+            tagId = newTag.id;
+            // Refresh available tags
+            await fetchAvailableTags();
           }
         }
 
         if (tagId) {
-          // Apply tag to candidate via edge function
-          try {
-            const session = await supabase.auth.getSession();
-            const response = await fetch(`https://sgccmxpdccwikgujbloo.supabase.co/functions/v1/candidates/${candidateId}/tags`, {
-              method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${session.data.session?.access_token}`,
-                'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNnY2NteHBkY2N3aWtndWpibG9vIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTYxMzg2MjMsImV4cCI6MjA3MTcxNDYyM30.DeQoOqpA9F2Xft5B-U7ucO38CZBYJKnaRxmumnEWaj4',
-                'Content-Type': 'application/json'
-              },
-              body: JSON.stringify({ tagId })
+          // Add candidate_tag relationship
+          const { error } = await supabase
+            .from('candidate_tags')
+            .insert({
+              candidate_id: candidateId,
+              tag_id: tagId,
+              created_by: session.data.session.user.id
             });
             
-            if (!response.ok) {
-              const errorData = await response.json();
-              console.error('Failed to add tag to candidate:', errorData);
-            }
-          } catch (error) {
+          if (error && error.code !== '23505') { // Ignore duplicate key errors
             console.error('Error adding tag to candidate:', error);
+          } else {
+            // Increment tag usage
+            await supabase.rpc('increment_tag_usage', { tag_id: tagId });
           }
         }
       }
 
-      // Remove tags that were unchecked
+      // Remove tags
       for (const tagName of tagsToRemove) {
-        try {
-          const { data: tagData } = await supabase
-            .from('tags')
-            .select('id')
-            .eq('name', tagName)
-            .single();
+        const { data: tagData } = await supabase
+          .from('tags')
+          .select('id')
+          .eq('name', tagName)
+          .maybeSingle();
+          
+        if (tagData?.id) {
+          const { error } = await supabase
+            .from('candidate_tags')
+            .delete()
+            .eq('candidate_id', candidateId)
+            .eq('tag_id', tagData.id)
+            .eq('created_by', session.data.session.user.id);
             
-          if (tagData?.id) {
-            const session = await supabase.auth.getSession();
-            const response = await fetch(`https://sgccmxpdccwikgujbloo.supabase.co/functions/v1/candidates/${candidateId}/tags/${tagData.id}`, {
-              method: 'DELETE',
-              headers: {
-                'Authorization': `Bearer ${session.data.session?.access_token}`,
-                'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNnY2NteHBkY2N3aWtndWpibG9vIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTYxMzg2MjMsImV4cCI6MjA3MTcxNDYyM30.DeQoOqpA9F2Xft5B-U7ucO38CZBYJKnaRxmumnEWaj4'
-              }
-            });
-            
-            if (!response.ok) {
-              const errorData = await response.json();
-              console.error('Failed to remove tag from candidate:', errorData);
-            }
+          if (error) {
+            console.error('Error removing tag from candidate:', error);
+          } else {
+            // Decrement tag usage
+            await supabase.rpc('decrement_tag_usage', { tag_id: tagData.id });
           }
-        } catch (error) {
-          console.error('Error removing tag from candidate:', error);
         }
       }
 
@@ -353,17 +407,26 @@ export function CandidateListReal() {
         throw new Error('No authentication session available');
       }
 
-      const response = await supabase.functions.invoke('tags', {
-        body: { name: tagName, type: 'personal' }
-      })
+      // Try direct database insert first
+      const { data: tag, error } = await supabase
+        .from('tags')
+        .insert({
+          name: tagName,
+          type: 'personal',
+          created_by: session.data.session.user.id,
+          usage_count: 0
+        })
+        .select()
+        .single();
 
-      if (response.error) {
-        console.error('Error creating tag via function:', response.error);
-        throw response.error;
-      }
-
-      if (!response.data?.tag) {
-        throw new Error('Invalid response from tag creation');
+      if (error) {
+        if (error.code === '23505') {
+          // Tag already exists, that's ok
+          console.log('Tag already exists:', tagName);
+        } else {
+          console.error('Error creating tag:', error);
+          throw error;
+        }
       }
 
       // Refresh available tags
