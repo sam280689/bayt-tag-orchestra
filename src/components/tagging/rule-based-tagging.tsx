@@ -10,6 +10,7 @@ import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { useAuth } from "@/hooks/useAuth"
 import { useToast } from "@/hooks/use-toast"
 import { 
   Zap, 
@@ -59,6 +60,7 @@ interface NewRule {
 
 export function RuleBasedTagging() {
   const { toast } = useToast()
+  const { user } = useAuth()
   const [rules, setRules] = React.useState<AutoTagRule[]>([])
   const [tags, setTags] = React.useState<any[]>([])
   const [loading, setLoading] = React.useState(true)

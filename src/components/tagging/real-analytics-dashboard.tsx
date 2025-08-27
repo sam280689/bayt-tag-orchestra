@@ -178,17 +178,17 @@ export function RealAnalyticsDashboard() {
           growth: Math.floor(Math.random() * 50) - 10 // Simulated growth for demo
         }))
 
-      // Calculate tags by type
-      const typeCount = {}
+      // Calculate tags by type with proper typing
+      const typeCount: Record<string, number> = {}
       tagsResult.data?.forEach(tag => {
         typeCount[tag.type] = (typeCount[tag.type] || 0) + 1
       })
       
-      const totalTagCount = Object.values(typeCount).reduce((sum: number, count: unknown) => sum + (count as number), 0)
+      const totalTagCount = Object.values(typeCount).reduce((sum, count) => sum + count, 0)
       const tagsByType = Object.entries(typeCount).map(([type, count]) => ({
         type: type.charAt(0).toUpperCase() + type.slice(1),
-        count: count as number,
-        percentage: totalTagCount > 0 ? Math.round(((count as number) / totalTagCount) * 100) : 0
+        count,
+        percentage: totalTagCount > 0 ? Math.round((count / totalTagCount) * 100) : 0
       }))
 
       // Process recent activity

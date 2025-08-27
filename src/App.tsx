@@ -9,6 +9,7 @@ import Index from "./pages/Index";
 import Team from "./pages/Team";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
+import { RuleBasedTagging } from "@/components/tagging/rule-based-tagging";
 import Auth from "./pages/Auth";
 
 const queryClient = new QueryClient();
@@ -30,6 +31,13 @@ const App = () => (
             <Route path="/workflows" element={<ProtectedRoute><Index /></ProtectedRoute>} />
             <Route path="/team" element={<ProtectedRoute><Team /></ProtectedRoute>} />
             <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+            <Route path="/rule-tagging" element={
+              <ProtectedRoute>
+                <div className="container mx-auto py-8">
+                  <RuleBasedTagging />
+                </div>
+              </ProtectedRoute>
+            } />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
