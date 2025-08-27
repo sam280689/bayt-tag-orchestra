@@ -4,11 +4,12 @@ import { Button } from '@/components/ui/button';
 import { Tag } from '@/components/ui/tag';
 import { TagInput } from '@/components/ui/tag-input';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Star, Bookmark, Clock, User } from 'lucide-react';
+import { Plus, Star, Bookmark, Clock, User, Search, CheckCircle2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from '@/hooks/use-toast';
+import { useNavigate } from 'react-router-dom';
 
 interface PersonalTag {
   id: string;
@@ -25,6 +26,7 @@ interface PersonalTagsProps {
 
 export function PersonalTags({ className }: PersonalTagsProps) {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [personalTags, setPersonalTags] = useState<string[]>([]);
   const [recentTags, setRecentTags] = useState<PersonalTag[]>([]);
   const [mostUsedTags, setMostUsedTags] = useState<PersonalTag[]>([]);
@@ -140,6 +142,100 @@ export function PersonalTags({ className }: PersonalTagsProps) {
     const diffInDays = Math.floor(diffInHours / 24);
     if (diffInDays < 7) return `${diffInDays}d ago`;
     return `${Math.floor(diffInDays / 7)}w ago`;
+  };
+
+  const handleTagSavedJobs = async () => {
+    try {
+      // Create or find a "Saved Jobs" tag
+      const savedJobsTag = "Saved Jobs";
+      
+      if (!personalTags.includes(savedJobsTag)) {
+        await handleCreateTag(savedJobsTag);
+        setPersonalTags(prev => [...prev, savedJobsTag]);
+      }
+      
+      // Navigate to candidates page to apply tags
+      navigate('/candidates');
+      
+      toast({
+        title: "Ready to Tag Jobs",
+        description: "Navigate to saved candidates and apply your personal tags",
+      });
+    } catch (error) {
+      console.error('Error handling saved jobs:', error);
+      toast({
+        title: "Error",
+        description: "Failed to setup saved jobs tagging",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleOrganizeSearches = async () => {
+    try {
+      // Create search organization tags
+      const searchTags = ["Active Search", "Follow Up", "Interested"];
+      
+      for (const tagName of searchTags) {
+        if (!personalTags.includes(tagName)) {
+          await handleCreateTag(tagName);
+        }
+      }
+      
+      // Update personal tags
+      const newTags = [...new Set([...personalTags, ...searchTags])];
+      setPersonalTags(newTags);
+      
+      toast({
+        title: "Search Organization Tags Created",
+        description: "Added 'Active Search', 'Follow Up', and 'Interested' tags",
+      });
+      
+      // Refresh the tag list
+      fetchPersonalTags();
+    } catch (error) {
+      console.error('Error organizing searches:', error);
+      toast({
+        title: "Error",
+        description: "Failed to create search organization tags",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleReviewApplications = async () => {
+    try {
+      // Create application review tags
+      const reviewTags = ["Applied", "Interview Scheduled", "Pending Response", "Follow Up Needed"];
+      
+      for (const tagName of reviewTags) {
+        if (!personalTags.includes(tagName)) {
+          await handleCreateTag(tagName);
+        }
+      }
+      
+      // Update personal tags
+      const newTags = [...new Set([...personalTags, ...reviewTags])];
+      setPersonalTags(newTags);
+      
+      toast({
+        title: "Application Review Tags Created",
+        description: "Added application status tracking tags",
+      });
+      
+      // Navigate to candidates to review applications
+      navigate('/candidates');
+      
+      // Refresh the tag list
+      fetchPersonalTags();
+    } catch (error) {
+      console.error('Error setting up application review:', error);
+      toast({
+        title: "Error",
+        description: "Failed to create application review tags",
+        variant: "destructive"
+      });
+    }
   };
 
   if (loading) {
@@ -275,16 +371,28 @@ export function PersonalTags({ className }: PersonalTagsProps) {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          <Button variant="outline" className="w-full justify-start">
+          <Button 
+            variant="outline" 
+            className="w-full justify-start hover:bg-primary/5"
+            onClick={handleTagSavedJobs}
+          >
             <Star className="h-4 w-4 mr-2" />
             Tag saved jobs
           </Button>
-          <Button variant="outline" className="w-full justify-start">
-            <Bookmark className="h-4 w-4 mr-2" />
+          <Button 
+            variant="outline" 
+            className="w-full justify-start hover:bg-primary/5"
+            onClick={handleOrganizeSearches}
+          >
+            <Search className="h-4 w-4 mr-2" />
             Organize searches
           </Button>
-          <Button variant="outline" className="w-full justify-start">
-            <Clock className="h-4 w-4 mr-2" />
+          <Button 
+            variant="outline" 
+            className="w-full justify-start hover:bg-primary/5"
+            onClick={handleReviewApplications}
+          >
+            <CheckCircle2 className="h-4 w-4 mr-2" />
             Review applications
           </Button>
         </CardContent>
