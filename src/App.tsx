@@ -7,6 +7,7 @@ import { AuthProvider } from "@/hooks/useAuth";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import Index from "./pages/Index";
 import Team from "./pages/Team";
+import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 import Auth from "./pages/Auth";
 
@@ -28,6 +29,7 @@ const App = () => (
             <Route path="/tags" element={<ProtectedRoute><Index /></ProtectedRoute>} />
             <Route path="/workflows" element={<ProtectedRoute><Index /></ProtectedRoute>} />
             <Route path="/team" element={<ProtectedRoute><Team /></ProtectedRoute>} />
+            <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
