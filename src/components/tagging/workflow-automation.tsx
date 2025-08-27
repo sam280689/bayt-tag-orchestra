@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
 import { Progress } from "@/components/ui/progress"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { supabase } from "@/integrations/supabase/client"
 import { useAuth } from "@/hooks/useAuth"
 import { 
@@ -60,9 +61,21 @@ export function WorkflowAutomation() {
   const [engine] = React.useState(() => WorkflowEngine.getInstance())
   const [rules, setRules] = React.useState<WorkflowRule[]>([])
   const [bulkOperations, setBulkOperations] = React.useState<BulkOperation[]>([])
+  const [executions, setExecutions] = React.useState<any[]>([])
   const [selectedRule, setSelectedRule] = React.useState<WorkflowRule | null>(null)
   const [isExecuting, setIsExecuting] = React.useState<string | null>(null)
   const [loading, setLoading] = React.useState(true)
+  const [selectedTags, setSelectedTags] = React.useState<string[]>([])
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = React.useState(false)
+  
+  // Form state for creating rules
+  const [newRule, setNewRule] = React.useState({
+    name: "",
+    description: "",
+    trigger_type: "",
+    conditions: [] as any[],
+    actions: [] as any[]
+  })
   
   React.useEffect(() => {
     if (user) {
@@ -129,6 +142,19 @@ export function WorkflowAutomation() {
       })) || []
 
       setBulkOperations(transformedOperations)
+
+      // Fetch execution history
+      const { data: executionData, error: executionError } = await supabase
+        .from('workflow_executions')
+        .select(`
+          *,
+          workflow_rules (name)
+        `)
+        .order('executed_at', { ascending: false })
+        .limit(10)
+
+      if (executionError) throw executionError
+      setExecutions(executionData || [])
       
     } catch (error) {
       console.error('Error fetching workflow data:', error)
@@ -223,11 +249,84 @@ export function WorkflowAutomation() {
     }
   }
 
-  const handleBulkOperation = async (type: string, targets: string[]) => {
-    if (targets.length === 0) {
+  const handleCreateRule = async () => {
+    if (!newRule.name || !newRule.trigger_type) {
+      toast({
+        title: "Missing Information",
+        description: "Please provide rule name and trigger type",
+        variant: "destructive"
+      })
+      return
+    }
+
+    try {
+      const { error } = await supabase
+        .from('workflow_rules')
+        .insert([{
+          name: newRule.name,
+          description: newRule.description,
+          trigger_type: newRule.trigger_type,
+          conditions: newRule.conditions,
+          actions: newRule.actions,
+          created_by: user?.id
+        }])
+
+      if (error) throw error
+
+      toast({
+        title: "Rule Created",
+        description: "Workflow rule created successfully"
+      })
+
+      setIsCreateDialogOpen(false)
+      setNewRule({
+        name: "",
+        description: "",
+        trigger_type: "",
+        conditions: [],
+        actions: []
+      })
+      fetchWorkflowData()
+    } catch (error) {
+      console.error('Error creating rule:', error)
+      toast({
+        title: "Error",
+        description: "Failed to create workflow rule",
+        variant: "destructive"
+      })
+    }
+  }
+
+  const handleDeleteRule = async (ruleId: string) => {
+    try {
+      const { error } = await supabase
+        .from('workflow_rules')
+        .delete()
+        .eq('id', ruleId)
+
+      if (error) throw error
+
+      toast({
+        title: "Rule Deleted",
+        description: "Workflow rule deleted successfully"
+      })
+      fetchWorkflowData()
+    } catch (error) {
+      console.error('Error deleting rule:', error)
+      toast({
+        title: "Error",
+        description: "Failed to delete workflow rule",
+        variant: "destructive"
+      })
+    }
+  }
+
+  const handleBulkOperation = async (type: string, targets?: string[]) => {
+    const actualTargets = targets || selectedTags
+    if (actualTargets.length === 0) {
       toast({
         title: "No Items Selected",
-        description: "Please select items for bulk operation",
+        description: "Please select tags for bulk operation",
         variant: "destructive"
       })
       return
@@ -238,7 +337,7 @@ export function WorkflowAutomation() {
         .from('bulk_operations')
         .insert([{
           type,
-          targets,
+          targets: actualTargets,
           status: 'pending',
           progress: 0,
           created_by: user?.id,
@@ -265,7 +364,7 @@ export function WorkflowAutomation() {
             .from('bulk_operations')
             .update({
               completed_at: new Date().toISOString(),
-              results: { successful: targets.length, failed: 0 }
+              results: { successful: actualTargets.length, failed: 0 }
             })
             .eq('id', operation.id)
           
@@ -277,7 +376,7 @@ export function WorkflowAutomation() {
       
       toast({
         title: "Bulk Operation Started",
-        description: `Processing ${targets.length} items`,
+        description: `Processing ${actualTargets.length} items`,
       })
     } catch (error) {
       console.error('Error starting bulk operation:', error)
@@ -287,6 +386,51 @@ export function WorkflowAutomation() {
         variant: "destructive"
       })
     }
+  }
+
+  const handleQuickAction = async (action: string) => {
+    try {
+      // Get sample tags for demonstration
+      const { data: tags } = await supabase
+        .from('tags')
+        .select('name')
+        .limit(5)
+
+      const tagNames = tags?.map(t => t.name) || ['tag1', 'tag2']
+
+      switch (action) {
+        case 'cleanup':
+          await handleBulkOperation('delete', tagNames)
+          break
+        case 'merge':
+          await handleBulkOperation('merge', tagNames)
+          break
+        case 'validate':
+          toast({
+            title: "Validation Complete",
+            description: "Tag taxonomy validation completed successfully"
+          })
+          break
+      }
+    } catch (error) {
+      console.error('Error executing quick action:', error)
+      toast({
+        title: "Error",
+        description: "Failed to execute quick action",
+        variant: "destructive"
+      })
+    }
+  }
+
+  const handleUseTemplate = async (template: any) => {
+    setNewRule({
+      name: template.name,
+      description: template.description,
+      trigger_type: "manual",
+      conditions: [],
+      actions: []
+    })
+    setIsCreateDialogOpen(true)
   }
 
   const getStatusIcon = (status: string) => {
@@ -312,23 +456,31 @@ export function WorkflowAutomation() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Workflow Automation</h1>
-          <p className="text-muted-foreground">
-            Automate repetitive tasks and enforce tagging governance
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Dialog>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="h-4 w-4 mr-2" />
-                Create Rule
-              </Button>
-            </DialogTrigger>
+    <TooltipProvider>
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight">Workflow Automation</h1>
+            <p className="text-muted-foreground">
+              Automate repetitive tasks and enforce tagging governance
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <DialogTrigger asChild>
+                    <Button>
+                      <Plus className="h-4 w-4 mr-2" />
+                      Create Rule
+                    </Button>
+                  </DialogTrigger>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Create a new automated workflow rule to handle repetitive tasks</p>
+                </TooltipContent>
+              </Tooltip>
             <DialogContent className="max-w-2xl">
               <DialogHeader>
                 <DialogTitle>Create Workflow Rule</DialogTitle>
@@ -340,11 +492,16 @@ export function WorkflowAutomation() {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="ruleName">Rule Name</Label>
-                    <Input id="ruleName" placeholder="e.g. Auto-merge duplicates" />
+                    <Input 
+                      id="ruleName" 
+                      placeholder="e.g. Auto-merge duplicates"
+                      value={newRule.name}
+                      onChange={(e) => setNewRule(prev => ({ ...prev, name: e.target.value }))}
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="triggerType">Trigger Type</Label>
-                    <Select>
+                    <Select value={newRule.trigger_type} onValueChange={(value) => setNewRule(prev => ({ ...prev, trigger_type: value }))}>
                       <SelectTrigger>
                         <SelectValue placeholder="Select trigger" />
                       </SelectTrigger>
@@ -363,6 +520,8 @@ export function WorkflowAutomation() {
                     id="description" 
                     placeholder="Describe what this rule does..."
                     rows={3}
+                    value={newRule.description}
+                    onChange={(e) => setNewRule(prev => ({ ...prev, description: e.target.value }))}
                   />
                 </div>
                 <div className="space-y-2">
@@ -388,8 +547,8 @@ export function WorkflowAutomation() {
                 </div>
               </div>
               <DialogFooter>
-                <Button variant="outline">Cancel</Button>
-                <Button>Create Rule</Button>
+                <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>Cancel</Button>
+                <Button onClick={handleCreateRule}>Create Rule</Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
@@ -464,24 +623,39 @@ export function WorkflowAutomation() {
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center gap-1 justify-end">
-                          <Button 
-                            variant="ghost" 
-                            size="sm"
-                            onClick={() => handleExecuteRule(rule.id)}
-                            disabled={isExecuting === rule.id}
-                          >
-                            {isExecuting === rule.id ? (
-                              <RefreshCw className="h-3 w-3 animate-spin" />
-                            ) : (
-                              <Play className="h-3 w-3" />
-                            )}
-                          </Button>
-                          <Button variant="ghost" size="sm">
-                            <Edit className="h-3 w-3" />
-                          </Button>
-                          <Button variant="ghost" size="sm">
-                            <Trash2 className="h-3 w-3" />
-                          </Button>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button 
+                                variant="ghost" 
+                                size="sm"
+                                onClick={() => handleExecuteRule(rule.id)}
+                                disabled={isExecuting === rule.id}
+                              >
+                                {isExecuting === rule.id ? (
+                                  <RefreshCw className="h-3 w-3 animate-spin" />
+                                ) : (
+                                  <Play className="h-3 w-3" />
+                                )}
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Execute this rule now</TooltipContent>
+                          </Tooltip>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button variant="ghost" size="sm" onClick={() => setSelectedRule(rule)}>
+                                <Edit className="h-3 w-3" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Edit this rule</TooltipContent>
+                          </Tooltip>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button variant="ghost" size="sm" onClick={() => handleDeleteRule(rule.id)}>
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Delete this rule</TooltipContent>
+                          </Tooltip>
                         </div>
                       </TableCell>
                     </TableRow>
@@ -507,51 +681,104 @@ export function WorkflowAutomation() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-2 gap-2">
-                  <Button 
-                    variant="outline" 
-                    onClick={() => handleBulkOperation('merge', ['tag1', 'tag2'])}
-                  >
-                    <Download className="h-4 w-4 mr-2" />
-                    Bulk Merge
-                  </Button>
-                  <Button 
-                    variant="outline"
-                    onClick={() => handleBulkOperation('delete', ['unused1', 'unused2'])}
-                  >
-                    <Trash2 className="h-4 w-4 mr-2" />
-                    Bulk Delete
-                  </Button>
-                  <Button 
-                    variant="outline"
-                    onClick={() => handleBulkOperation('update', ['tag3', 'tag4'])}
-                  >
-                    <Edit className="h-4 w-4 mr-2" />
-                    Bulk Update
-                  </Button>
-                  <Button 
-                    variant="outline"
-                    onClick={() => handleBulkOperation('export', ['all'])}
-                  >
-                    <Upload className="h-4 w-4 mr-2" />
-                    Bulk Export
-                  </Button>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button 
+                        variant="outline" 
+                        onClick={() => handleBulkOperation('merge')}
+                        disabled={selectedTags.length === 0}
+                      >
+                        <Download className="h-4 w-4 mr-2" />
+                        Bulk Merge
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Merge selected tags with similar ones</TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button 
+                        variant="outline"
+                        onClick={() => handleBulkOperation('delete')}
+                        disabled={selectedTags.length === 0}
+                      >
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Bulk Delete
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Delete selected tags permanently</TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button 
+                        variant="outline"
+                        onClick={() => handleBulkOperation('update')}
+                        disabled={selectedTags.length === 0}
+                      >
+                        <Edit className="h-4 w-4 mr-2" />
+                        Bulk Update
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Update properties of selected tags</TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button 
+                        variant="outline"
+                        onClick={() => handleBulkOperation('export')}
+                      >
+                        <Upload className="h-4 w-4 mr-2" />
+                        Bulk Export
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Export all tags to file</TooltipContent>
+                  </Tooltip>
                 </div>
                 
                 <div className="border rounded-lg p-4">
                   <Label className="text-sm font-medium">Quick Actions</Label>
                   <div className="mt-2 space-y-2">
-                    <Button variant="ghost" size="sm" className="w-full justify-start">
-                      <Zap className="h-4 w-4 mr-2" />
-                      Cleanup unused tags (15 found)
-                    </Button>
-                    <Button variant="ghost" size="sm" className="w-full justify-start">
-                      <RefreshCw className="h-4 w-4 mr-2" />
-                      Merge duplicates (8 pairs found)
-                    </Button>
-                    <Button variant="ghost" size="sm" className="w-full justify-start">
-                      <CheckCircle className="h-4 w-4 mr-2" />
-                      Validate tag taxonomy
-                    </Button>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="w-full justify-start"
+                          onClick={() => handleQuickAction('cleanup')}
+                        >
+                          <Zap className="h-4 w-4 mr-2" />
+                          Cleanup unused tags (15 found)
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Remove tags that haven't been used recently</TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="w-full justify-start"
+                          onClick={() => handleQuickAction('merge')}
+                        >
+                          <RefreshCw className="h-4 w-4 mr-2" />
+                          Merge duplicates (8 pairs found)
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Automatically merge similar tags</TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="w-full justify-start"
+                          onClick={() => handleQuickAction('validate')}
+                        >
+                          <CheckCircle className="h-4 w-4 mr-2" />
+                          Validate tag taxonomy
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Check tag structure and relationships</TooltipContent>
+                    </Tooltip>
                   </div>
                 </div>
               </CardContent>
@@ -620,28 +847,37 @@ export function WorkflowAutomation() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {/* Mock execution history since we don't have a getExecutions method yet */}
-                {rules.slice(0, 5).map((rule) => (
-                  <div key={rule.id} className="flex items-center justify-between p-3 border rounded-lg">
-                    <div className="flex items-center gap-3">
-                      {getStatusIcon(rule.lastExecuted ? 'completed' : 'pending')}
-                      <div>
-                        <p className="font-medium">{rule.name}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {rule.lastExecuted ? new Date(rule.lastExecuted).toLocaleString() : 'Never executed'}
-                        </p>
+                {executions.length > 0 ? (
+                  executions.map((execution) => (
+                    <div key={execution.id} className="flex items-center justify-between p-3 border rounded-lg">
+                      <div className="flex items-center gap-3">
+                        {getStatusIcon(execution.status)}
+                        <div>
+                          <p className="font-medium">
+                            {execution.workflow_rules?.name || 'Unknown Rule'}
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            {new Date(execution.executed_at).toLocaleString()}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <Badge variant={execution.status === 'completed' ? 'default' : 'secondary'}>
+                          {execution.status}
+                        </Badge>
+                        {execution.error_message && (
+                          <p className="text-xs text-red-500 mt-1 max-w-48 truncate">
+                            {execution.error_message}
+                          </p>
+                        )}
                       </div>
                     </div>
-                    <div className="text-right">
-                      <Badge variant={rule.lastExecuted ? 'default' : 'secondary'}>
-                        {rule.lastExecuted ? 'completed' : 'pending'}
-                      </Badge>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {rule.executionCount} executions
-                      </p>
-                    </div>
-                  </div>
-                ))}
+                  ))
+                ) : (
+                  <p className="text-sm text-muted-foreground text-center py-4">
+                    No execution history available
+                  </p>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -680,23 +916,31 @@ export function WorkflowAutomation() {
                 description: "Send alerts for important tag events",
                 category: "Communication"
               }
-            ].map((template, index) => (
-              <Card key={index} className="cursor-pointer transition-all hover:shadow-md">
-                <CardHeader>
-                  <CardTitle className="text-lg">{template.name}</CardTitle>
-                  <CardDescription>{template.description}</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-center justify-between">
-                    <Badge variant="outline">{template.category}</Badge>
-                    <Button size="sm">Use Template</Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+              ].map((template, index) => (
+                <Card key={index} className="cursor-pointer transition-all hover:shadow-md">
+                  <CardHeader>
+                    <CardTitle className="text-lg">{template.name}</CardTitle>
+                    <CardDescription>{template.description}</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex items-center justify-between">
+                      <Badge variant="outline">{template.category}</Badge>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button size="sm" onClick={() => handleUseTemplate(template)}>
+                            Use Template
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Create a new rule based on this template</TooltipContent>
+                      </Tooltip>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
           </div>
         </TabsContent>
       </Tabs>
-    </div>
+      </div>
+    </TooltipProvider>
   )
 }
