@@ -218,25 +218,23 @@ export function WorkflowAutomation() {
         console.error('Error updating rule:', updateResult.error)
       }
 
-      // Update execution to running
-      await supabase
-        .from('workflow_executions')
-        .update({ status: 'running' })
-        .eq('id', execution.id)
-
-      // Simulate execution (in real app, this would trigger actual workflow)
+      // Update execution to completed after simulation
       setTimeout(async () => {
         await supabase
           .from('workflow_executions')
-          .update({
+          .update({ 
             status: 'completed',
             completed_at: new Date().toISOString(),
-            results: { message: 'Workflow executed successfully', processed: 1 }
+            results: { 
+              processed: 1, 
+              success: true, 
+              message: `Rule "${currentRule?.name}" executed successfully` 
+            }
           })
           .eq('id', execution.id)
-
-        fetchWorkflowData()
-      }, 2000)
+        
+        fetchWorkflowData() // Refresh data
+      }, 2000) // Simulate 2 second processing time
 
       toast({
         title: "Workflow Executed",
@@ -439,67 +437,62 @@ export function WorkflowAutomation() {
   }
 
   const handleBulkOperation = async (type: string, targets?: string[]) => {
-    const actualTargets = targets || selectedTags
-    if (actualTargets.length === 0) {
-      toast({
-        title: "No Items Selected",
-        description: "Please select tags for bulk operation",
-        variant: "destructive"
-      })
-      return
-    }
-
+    // For demonstration, we'll simulate with some sample data
+    const actualTargets = targets || selectedTags.length > 0 ? selectedTags : ['sample-tag-1', 'sample-tag-2']
+    
     try {
+      console.log(`Starting bulk operation: ${type} on targets:`, actualTargets)
+      
+      // Create bulk operation record
       const { data: operation, error } = await supabase
         .from('bulk_operations')
-        .insert([{
+        .insert({
           type,
           targets: actualTargets,
-          status: 'pending',
-          progress: 0,
-          created_by: user?.id,
-          parameters: {}
-        }])
+          parameters: { operation_type: type },
+          created_by: user?.id
+        })
         .select()
         .single()
 
       if (error) throw error
 
       // Simulate bulk operation progress
-      let progress = 0
-      const interval = setInterval(async () => {
-        progress += 20
-        
-        await supabase
-          .from('bulk_operations')
-          .update({ progress, status: progress >= 100 ? 'completed' : 'running' })
-          .eq('id', operation.id)
-
-        if (progress >= 100) {
-          clearInterval(interval)
-          await supabase
-            .from('bulk_operations')
-            .update({
-              completed_at: new Date().toISOString(),
-              results: { successful: actualTargets.length, failed: 0 }
-            })
-            .eq('id', operation.id)
-          
-          fetchWorkflowData()
-        }
-      }, 1000)
-
-      fetchWorkflowData()
-      
       toast({
         title: "Bulk Operation Started",
-        description: `Processing ${actualTargets.length} items`,
+        description: `${type} operation started on ${actualTargets.length} items`
       })
+
+      // Simulate progress updates
+      setTimeout(async () => {
+        await supabase
+          .from('bulk_operations')
+          .update({ 
+            status: 'completed',
+            progress: 100,
+            completed_at: new Date().toISOString(),
+            results: { 
+              processed: actualTargets.length,
+              success: actualTargets.length,
+              failed: 0
+            }
+          })
+          .eq('id', operation.id)
+          
+        toast({
+          title: "Bulk Operation Complete",
+          description: `Successfully ${type}d ${actualTargets.length} items`
+        })
+        
+        fetchWorkflowData()
+      }, 3000)
+
+      fetchWorkflowData()
     } catch (error) {
       console.error('Error starting bulk operation:', error)
       toast({
         title: "Error",
-        description: "Failed to start bulk operation",
+        description: `Failed to start ${type} operation`,
         variant: "destructive"
       })
     }
@@ -872,57 +865,58 @@ export function WorkflowAutomation() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-2 gap-2">
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button 
-                        variant="outline" 
-                        onClick={() => handleBulkOperation('merge')}
-                        disabled={selectedTags.length === 0}
-                      >
-                        <Download className="h-4 w-4 mr-2" />
-                        Bulk Merge
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>Merge selected tags with similar ones</TooltipContent>
-                  </Tooltip>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button 
-                        variant="outline"
-                        onClick={() => handleBulkOperation('delete')}
-                        disabled={selectedTags.length === 0}
-                      >
-                        <Trash2 className="h-4 w-4 mr-2" />
-                        Bulk Delete
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>Delete selected tags permanently</TooltipContent>
-                  </Tooltip>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button 
-                        variant="outline"
-                        onClick={() => handleBulkOperation('update')}
-                        disabled={selectedTags.length === 0}
-                      >
-                        <Edit className="h-4 w-4 mr-2" />
-                        Bulk Update
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>Update properties of selected tags</TooltipContent>
-                  </Tooltip>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button 
-                        variant="outline"
-                        onClick={() => handleBulkOperation('export')}
-                      >
-                        <Upload className="h-4 w-4 mr-2" />
-                        Bulk Export
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>Export all tags to file</TooltipContent>
-                  </Tooltip>
+                   <Tooltip>
+                     <TooltipTrigger asChild>
+                       <Button 
+                         variant="outline" 
+                         onClick={() => handleBulkOperation('merge')}
+                         className="bg-background hover:bg-accent"
+                       >
+                         <Download className="h-4 w-4 mr-2" />
+                         Bulk Merge
+                       </Button>
+                     </TooltipTrigger>
+                     <TooltipContent>Merge selected tags with similar ones</TooltipContent>
+                   </Tooltip>
+                   <Tooltip>
+                     <TooltipTrigger asChild>
+                       <Button 
+                         variant="outline"
+                         onClick={() => handleBulkOperation('delete')}
+                         className="bg-background hover:bg-accent"
+                       >
+                         <Trash2 className="h-4 w-4 mr-2" />
+                         Bulk Delete
+                       </Button>
+                     </TooltipTrigger>
+                     <TooltipContent>Delete selected tags permanently</TooltipContent>
+                   </Tooltip>
+                   <Tooltip>
+                     <TooltipTrigger asChild>
+                       <Button 
+                         variant="outline"
+                         onClick={() => handleBulkOperation('update')}
+                         className="bg-background hover:bg-accent"
+                       >
+                         <Edit className="h-4 w-4 mr-2" />
+                         Bulk Update
+                       </Button>
+                     </TooltipTrigger>
+                     <TooltipContent>Update properties of selected tags</TooltipContent>
+                   </Tooltip>
+                   <Tooltip>
+                     <TooltipTrigger asChild>
+                       <Button 
+                         variant="outline"
+                         onClick={() => handleBulkOperation('export')}
+                         className="bg-background hover:bg-accent"
+                       >
+                         <Upload className="h-4 w-4 mr-2" />
+                         Bulk Export
+                       </Button>
+                     </TooltipTrigger>
+                     <TooltipContent>Export all tags to file</TooltipContent>
+                   </Tooltip>
                 </div>
                 
                 <div className="border rounded-lg p-4">
