@@ -56,7 +56,7 @@ verify_jwt = true
 verify_jwt = true
 
 [functions.apply-rules]
-verify_jwt = false
+verify_jwt = true
 
 [functions.candidates]
 verify_jwt = true
@@ -65,7 +65,7 @@ verify_jwt = true
 verify_jwt = true
 
 [functions.dashboard]
-verify_jwt = false
+verify_jwt = true
 
 [functions.execute-workflow]
-verify_jwt = false
+verify_jwt = true
