@@ -301,18 +301,19 @@ export function TagManagement() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Tag Management</h1>
-          <p className="text-muted-foreground">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="min-w-0">
+          <h1 className="text-xl sm:text-2xl font-semibold tracking-tight">Tag Management</h1>
+          <p className="text-sm sm:text-base text-muted-foreground">
             Manage your tag taxonomy and maintain data quality
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
           <Button 
             variant="outline" 
             onClick={handleSmartScan}
             disabled={isScanning}
+            className="w-full sm:w-auto"
           >
             {isScanning ? (
               <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
@@ -323,12 +324,12 @@ export function TagManagement() {
           </Button>
           <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
             <DialogTrigger asChild>
-              <Button>
+              <Button className="w-full sm:w-auto">
                 <Plus className="h-4 w-4 mr-2" />
                 Create Tag
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="mx-4 sm:mx-auto max-w-md">
               <DialogHeader>
                 <DialogTitle>Create New Tag</DialogTitle>
                 <DialogDescription>
@@ -343,6 +344,7 @@ export function TagManagement() {
                     placeholder="e.g. Senior Developer"
                     value={newTagName}
                     onChange={(e) => setNewTagName(e.target.value)}
+                    className="text-base"
                   />
                 </div>
                 <div className="space-y-2">
@@ -351,7 +353,7 @@ export function TagManagement() {
                     <SelectTrigger>
                       <SelectValue placeholder="Select tag type" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="max-w-[calc(100vw-4rem)]">
                       <SelectItem value="personal">Personal</SelectItem>
                       <SelectItem value="team">Team</SelectItem>
                       <SelectItem value="global">Global</SelectItem>
@@ -359,11 +361,11 @@ export function TagManagement() {
                   </Select>
                 </div>
               </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
+              <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2">
+                <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)} className="w-full sm:w-auto">
                   Cancel
                 </Button>
-                <Button onClick={createTag} disabled={!newTagName.trim()}>
+                <Button onClick={createTag} disabled={!newTagName.trim()} className="w-full sm:w-auto">
                   Create Tag
                 </Button>
               </DialogFooter>
@@ -417,51 +419,51 @@ export function TagManagement() {
       </div>
 
       {/* Quick Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <Card>
-          <CardContent className="p-4">
+          <CardContent className="p-3 sm:p-4">
             <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Total Tags</p>
-                <p className="text-2xl font-bold">{tags.length}</p>
+              <div className="min-w-0">
+                <p className="text-xs sm:text-sm font-medium text-muted-foreground truncate">Total Tags</p>
+                <p className="text-lg sm:text-2xl font-bold">{tags.length}</p>
               </div>
-              <Tags className="h-8 w-8 text-muted-foreground" />
+              <Tags className="h-6 w-6 sm:h-8 sm:w-8 text-muted-foreground flex-shrink-0" />
             </div>
           </CardContent>
         </Card>
         
         <Card>
-          <CardContent className="p-4">
+          <CardContent className="p-3 sm:p-4">
             <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Team Tags</p>
-                <p className="text-2xl font-bold">{tags.filter(t => t.type === "team").length}</p>
+              <div className="min-w-0">
+                <p className="text-xs sm:text-sm font-medium text-muted-foreground truncate">Team Tags</p>
+                <p className="text-lg sm:text-2xl font-bold">{tags.filter(t => t.type === "team").length}</p>
               </div>
-              <Users className="h-8 w-8 text-muted-foreground" />
+              <Users className="h-6 w-6 sm:h-8 sm:w-8 text-muted-foreground flex-shrink-0" />
             </div>
           </CardContent>
         </Card>
 
         <Card>
-          <CardContent className="p-4">
+          <CardContent className="p-3 sm:p-4">
             <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Duplicates</p>
-                <p className="text-2xl font-bold text-warning">{duplicateTags.length}</p>
+              <div className="min-w-0">
+                <p className="text-xs sm:text-sm font-medium text-muted-foreground truncate">Duplicates</p>
+                <p className="text-lg sm:text-2xl font-bold text-warning">{duplicateTags.length}</p>
               </div>
-              <AlertTriangle className="h-8 w-8 text-warning" />
+              <AlertTriangle className="h-6 w-6 sm:h-8 sm:w-8 text-warning flex-shrink-0" />
             </div>
           </CardContent>
         </Card>
 
         <Card>
-          <CardContent className="p-4">
+          <CardContent className="p-3 sm:p-4">
             <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Total Usage</p>
-                <p className="text-2xl font-bold">{tags.reduce((sum, tag) => sum + tag.usage_count, 0)}</p>
+              <div className="min-w-0">
+                <p className="text-xs sm:text-sm font-medium text-muted-foreground truncate">Total Usage</p>
+                <p className="text-lg sm:text-2xl font-bold">{tags.reduce((sum, tag) => sum + tag.usage_count, 0)}</p>
               </div>
-              <Users className="h-8 w-8 text-muted-foreground" />
+              <Users className="h-6 w-6 sm:h-8 sm:w-8 text-muted-foreground flex-shrink-0" />
             </div>
           </CardContent>
         </Card>

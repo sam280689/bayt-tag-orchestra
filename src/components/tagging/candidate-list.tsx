@@ -150,38 +150,38 @@ export function CandidateList() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Candidates</h1>
-          <p className="text-muted-foreground">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="min-w-0">
+          <h1 className="text-xl sm:text-2xl font-semibold tracking-tight">Candidates</h1>
+          <p className="text-sm sm:text-base text-muted-foreground">
             Manage and tag your candidate pipeline
           </p>
         </div>
-        <Button>
+        <Button className="flex-shrink-0">
           <Download className="h-4 w-4 mr-2" />
-          Export
+          <span className="hidden sm:inline">Export</span>
         </Button>
       </div>
 
       {/* Filters and Search */}
       <Card>
-        <CardContent className="p-6">
-          <div className="flex flex-col gap-4 md:flex-row md:items-center">
+        <CardContent className="p-4 sm:p-6">
+          <div className="flex flex-col gap-3 sm:gap-4 sm:flex-row sm:items-center">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Search candidates..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9"
+                className="pl-9 text-base"
               />
             </div>
             <Select value={filterByTag} onValueChange={setFilterByTag}>
-              <SelectTrigger className="w-full md:w-48">
+              <SelectTrigger className="w-full sm:w-48">
                 <Filter className="h-4 w-4 mr-2" />
                 <SelectValue placeholder="Filter by tag" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="max-w-[calc(100vw-2rem)]">
                 <SelectItem value="all">All candidates</SelectItem>
                 {allTags.map(tag => (
                   <SelectItem key={tag} value={tag}>{tag}</SelectItem>
@@ -196,11 +196,11 @@ export function CandidateList() {
       {selectedCandidates.length > 0 && (
         <Card>
           <CardContent className="p-4">
-            <div className="flex items-center gap-4">
-              <Badge variant="secondary">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
+              <Badge variant="secondary" className="self-start">
                 {selectedCandidates.length} selected
               </Badge>
-              <div className="flex-1">
+              <div className="flex-1 min-w-0">
                 <TagInput
                   value={bulkTags}
                   onChange={setBulkTags}
@@ -209,7 +209,11 @@ export function CandidateList() {
                   maxTags={5}
                 />
               </div>
-              <Button onClick={handleBulkTagging} disabled={bulkTags.length === 0}>
+              <Button 
+                onClick={handleBulkTagging} 
+                disabled={bulkTags.length === 0}
+                className="w-full sm:w-auto"
+              >
                 <Tags className="h-4 w-4 mr-2" />
                 Apply Tags
               </Button>
@@ -267,18 +271,18 @@ export function CandidateList() {
                       </Badge>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-sm text-muted-foreground">
-                      <div className="flex items-center gap-1">
-                        <Mail className="h-3 w-3" />
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 text-sm text-muted-foreground">
+                      <div className="flex items-center gap-1 min-w-0">
+                        <Mail className="h-3 w-3 flex-shrink-0" />
                         <span className="truncate">{candidate.email}</span>
                       </div>
-                      <div className="flex items-center gap-1">
-                        <Phone className="h-3 w-3" />
-                        <span>{candidate.phone}</span>
+                      <div className="flex items-center gap-1 min-w-0">
+                        <Phone className="h-3 w-3 flex-shrink-0" />
+                        <span className="truncate">{candidate.phone}</span>
                       </div>
-                      <div className="flex items-center gap-1">
-                        <MapPin className="h-3 w-3" />
-                        <span>{candidate.location}</span>
+                      <div className="flex items-center gap-1 min-w-0 sm:col-span-2 lg:col-span-1">
+                        <MapPin className="h-3 w-3 flex-shrink-0" />
+                        <span className="truncate">{candidate.location}</span>
                       </div>
                     </div>
 

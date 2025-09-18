@@ -94,14 +94,14 @@ export function MainNav() {
     <header className="sticky top-0 z-40 w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 touch-manipulation">
       <div className="container flex h-16 items-center justify-between px-4 md:px-6">
         {/* Logo */}
-        <div className="flex items-center gap-6">
-          <Link to="/" className="flex items-center gap-2">
-            <div className="flex items-center justify-center w-8 h-8 bg-primary rounded-lg">
+        <div className="flex items-center gap-3 md:gap-6 min-w-0 flex-1">
+          <Link to="/" className="flex items-center gap-2 min-w-0">
+            <div className="flex items-center justify-center w-8 h-8 bg-primary rounded-lg flex-shrink-0">
               <Tags className="h-4 w-4 text-primary-foreground" />
             </div>
-            <div className="hidden md:block">
-              <span className="font-bold text-xl">Bayt UTS</span>
-              <p className="text-xs text-muted-foreground">Unified Tagging System</p>
+            <div className="hidden sm:block">
+              <span className="font-bold text-lg md:text-xl">Bayt UTS</span>
+              <p className="text-xs text-muted-foreground hidden md:block">Unified Tagging System</p>
             </div>
           </Link>
 
@@ -130,8 +130,19 @@ export function MainNav() {
         </div>
 
         {/* Right side */}
-        <div className="flex items-center gap-2">
-          {/* Search */}
+        <div className="flex items-center gap-1 md:gap-2 flex-shrink-0">
+          {/* Mobile Search Button */}
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            className="md:hidden h-9 w-9 p-0"
+            onClick={() => setIsSearchOpen(true)}
+            aria-label="Search"
+          >
+            <Search className="h-4 w-4" />
+          </Button>
+          
+          {/* Desktop Search */}
           <Button 
             variant="ghost" 
             size="sm" 
@@ -163,22 +174,22 @@ export function MainNav() {
                 </Badge>
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-80">
+            <DropdownMenuContent align="end" className="w-72 sm:w-80 max-w-[calc(100vw-2rem)]">
               <DropdownMenuLabel>Notifications</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem className="flex flex-col items-start gap-1 p-3">
+              <DropdownMenuItem className="flex flex-col items-start gap-1 p-3 whitespace-normal">
                 <div className="font-medium text-sm">New workflow execution completed</div>
-                <div className="text-xs text-muted-foreground">Rule "Auto-merge duplicates" finished successfully</div>
+                <div className="text-xs text-muted-foreground break-words">Rule "Auto-merge duplicates" finished successfully</div>
                 <div className="text-xs text-muted-foreground">2 minutes ago</div>
               </DropdownMenuItem>
-              <DropdownMenuItem className="flex flex-col items-start gap-1 p-3">
+              <DropdownMenuItem className="flex flex-col items-start gap-1 p-3 whitespace-normal">
                 <div className="font-medium text-sm">Bulk operation finished</div>
-                <div className="text-xs text-muted-foreground">Merged 15 duplicate tags</div>
+                <div className="text-xs text-muted-foreground break-words">Merged 15 duplicate tags</div>
                 <div className="text-xs text-muted-foreground">1 hour ago</div>
               </DropdownMenuItem>
-              <DropdownMenuItem className="flex flex-col items-start gap-1 p-3">
+              <DropdownMenuItem className="flex flex-col items-start gap-1 p-3 whitespace-normal">
                 <div className="font-medium text-sm">New team member added</div>
-                <div className="text-xs text-muted-foreground">john.doe@company.com joined your team</div>
+                <div className="text-xs text-muted-foreground break-words">john.doe@company.com joined your team</div>
                 <div className="text-xs text-muted-foreground">3 hours ago</div>
               </DropdownMenuItem>
             </DropdownMenuContent>
@@ -244,14 +255,14 @@ export function MainNav() {
                 <Menu className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-56" align="end" sideOffset={4}>
+            <DropdownMenuContent className="w-60 max-w-[calc(100vw-2rem)]" align="end" sideOffset={4}>
               {navigation.map((item) => (
                 <DropdownMenuItem key={item.name} asChild>
                   <Link 
                     to={item.href}
-                    className="flex items-center gap-2 min-h-[44px] touch-manipulation"
+                    className="flex items-center gap-3 min-h-[48px] px-4 py-3 touch-manipulation text-base"
                   >
-                    <item.icon className="h-4 w-4 flex-shrink-0" />
+                    <item.icon className="h-5 w-5 flex-shrink-0" />
                     <span className="truncate">{item.name}</span>
                   </Link>
                 </DropdownMenuItem>
@@ -263,14 +274,14 @@ export function MainNav() {
       
       {/* Search Dialog */}
       <Dialog open={isSearchOpen} onOpenChange={setIsSearchOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md mx-4 sm:mx-auto">
           <DialogHeader>
             <DialogTitle>Search</DialogTitle>
           </DialogHeader>
           <div className="py-4">
             <Input 
               placeholder="Search candidates, tags, workflows..."
-              className="w-full"
+              className="w-full text-base"
               autoFocus
             />
             <p className="text-sm text-muted-foreground mt-2">

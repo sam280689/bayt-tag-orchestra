@@ -339,15 +339,15 @@ export function RealAnalyticsDashboard() {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
         <Card className="relative overflow-hidden">
           <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-primary/10 to-transparent rounded-full -translate-y-16 translate-x-16" />
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative">
-            <CardTitle className="text-sm font-medium">Active Taggers</CardTitle>
+            <CardTitle className="text-xs sm:text-sm font-medium">Active Taggers</CardTitle>
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent className="relative">
-            <div className="text-2xl font-bold">{analytics.activeTaggers}</div>
+            <div className="text-xl sm:text-2xl font-bold">{analytics.activeTaggers}</div>
             <div className="flex items-center text-xs text-success">
               <TrendingUp className="h-3 w-3 mr-1" />
               {analytics.totalTeamMembers > 0 ? `${Math.round((analytics.activeTaggers / analytics.totalTeamMembers) * 100)}%` : '0%'} adoption rate
@@ -362,11 +362,11 @@ export function RealAnalyticsDashboard() {
         <Card className="relative overflow-hidden">
           <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-success/10 to-transparent rounded-full -translate-y-16 translate-x-16" />
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative">
-            <CardTitle className="text-sm font-medium">Search Efficiency</CardTitle>
+            <CardTitle className="text-xs sm:text-sm font-medium">Search Efficiency</CardTitle>
             <Zap className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent className="relative">
-            <div className="text-2xl font-bold">{analytics.efficiencyMetrics.efficiency_gain}%</div>
+            <div className="text-xl sm:text-2xl font-bold">{analytics.efficiencyMetrics.efficiency_gain}%</div>
             <div className="flex items-center text-xs text-success">
               <TrendingUp className="h-3 w-3 mr-1" />
               Faster with tags
@@ -390,11 +390,11 @@ export function RealAnalyticsDashboard() {
         <Card className="relative overflow-hidden">
           <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-warning/10 to-transparent rounded-full -translate-y-16 translate-x-16" />
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative">
-            <CardTitle className="text-sm font-medium">Conversion Impact</CardTitle>
+            <CardTitle className="text-xs sm:text-sm font-medium">Conversion Impact</CardTitle>
             <Target className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent className="relative">
-            <div className="text-2xl font-bold">+{analytics.conversionMetrics.conversion_lift}%</div>
+            <div className="text-xl sm:text-2xl font-bold">+{analytics.conversionMetrics.conversion_lift}%</div>
             <div className="flex items-center text-xs text-success">
               <TrendingUp className="h-3 w-3 mr-1" />
               Tagged vs untagged
@@ -418,11 +418,11 @@ export function RealAnalyticsDashboard() {
         <Card className="relative overflow-hidden">
           <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-accent/10 to-transparent rounded-full -translate-y-16 translate-x-16" />
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative">
-            <CardTitle className="text-sm font-medium">Tag Coverage</CardTitle>
+            <CardTitle className="text-xs sm:text-sm font-medium">Tag Coverage</CardTitle>
             <Tags className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent className="relative">
-            <div className="text-2xl font-bold">{analytics.efficiencyMetrics.tags_per_candidate}</div>
+            <div className="text-xl sm:text-2xl font-bold">{analytics.efficiencyMetrics.tags_per_candidate}</div>
             <div className="flex items-center text-xs text-success">
               <Activity className="h-3 w-3 mr-1" />
               Tags per candidate
@@ -445,96 +445,104 @@ export function RealAnalyticsDashboard() {
       </div>
 
       <Tabs defaultValue="trends" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-5">
-          <TabsTrigger value="trends">Trends</TabsTrigger>
-          <TabsTrigger value="performance">Performance</TabsTrigger>
-          <TabsTrigger value="usage">Usage</TabsTrigger>
-          <TabsTrigger value="team">Team</TabsTrigger>
-          <TabsTrigger value="activity">Activity</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 h-auto">
+          <TabsTrigger value="trends" className="text-xs sm:text-sm p-2 sm:p-3">Trends</TabsTrigger>
+          <TabsTrigger value="performance" className="text-xs sm:text-sm p-2 sm:p-3">Performance</TabsTrigger>
+          <TabsTrigger value="usage" className="text-xs sm:text-sm p-2 sm:p-3">Usage</TabsTrigger>
+          <TabsTrigger value="team" className="text-xs sm:text-sm p-2 sm:p-3">Team</TabsTrigger>
+          <TabsTrigger value="activity" className="text-xs sm:text-sm p-2 sm:p-3 col-span-2 sm:col-span-1">Activity</TabsTrigger>
         </TabsList>
 
         <TabsContent value="trends" className="space-y-4">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <BarChart3 className="h-5 w-5" />
+                <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+                  <BarChart3 className="h-4 w-4 sm:h-5 sm:w-5" />
                   Usage Trends (30 Days)
                 </CardTitle>
-                <CardDescription>
+                <CardDescription className="text-xs sm:text-sm">
                   Daily tag creation and usage patterns
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                  <AreaChart data={analytics.usageTrend}>
-                    <defs>
-                      <linearGradient id="colorCreated" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.8}/>
-                        <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0.1}/>
-                      </linearGradient>
-                      <linearGradient id="colorUsed" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="hsl(var(--success))" stopOpacity={0.8}/>
-                        <stop offset="95%" stopColor="hsl(var(--success))" stopOpacity={0.1}/>
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="date" />
-                    <YAxis />
-                    <Tooltip />
-                    <Area 
-                      type="monotone" 
-                      dataKey="tags_created" 
-                      stackId="1"
-                      stroke="hsl(var(--primary))" 
-                      fillOpacity={1} 
-                      fill="url(#colorCreated)"
-                      name="Tags Created"
-                    />
-                    <Area 
-                      type="monotone" 
-                      dataKey="tags_used" 
-                      stackId="1"
-                      stroke="hsl(var(--success))" 
-                      fillOpacity={1} 
-                      fill="url(#colorUsed)"
-                      name="Tags Used"
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
+                <div className="h-64 sm:h-80">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={analytics.usageTrend}>
+                      <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
+                      <XAxis 
+                        dataKey="date" 
+                        className="text-xs" 
+                        tick={{ fontSize: 12 }}
+                      />
+                      <YAxis className="text-xs" tick={{ fontSize: 12 }} />
+                      <Tooltip 
+                        contentStyle={{ 
+                          background: 'hsl(var(--card))', 
+                          border: '1px solid hsl(var(--border))',
+                          fontSize: '12px'
+                        }} 
+                      />
+                      <Area
+                        type="monotone"
+                        dataKey="tags_created"
+                        stackId="1"
+                        stroke="hsl(var(--primary))"
+                        fill="hsl(var(--primary))"
+                        fillOpacity={0.6}
+                        name="Tags Created"
+                      />
+                      <Area
+                        type="monotone"
+                        dataKey="tags_used"
+                        stackId="1"
+                        stroke="hsl(var(--secondary))"
+                        fill="hsl(var(--secondary))"
+                        fillOpacity={0.6}
+                        name="Tags Used"
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <PieChartIcon className="h-5 w-5" />
+                <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+                  <PieChartIcon className="h-4 w-4 sm:h-5 sm:w-5" />
                   Tag Distribution
                 </CardTitle>
-                <CardDescription>
+                <CardDescription className="text-xs sm:text-sm">
                   Tags by category and type
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                  <PieChart>
-                    <Pie
-                      data={analytics.tagsByType}
-                      cx="50%"
-                      cy="50%"
-                      labelLine={false}
-                      label={({ type, percentage }) => `${type} (${percentage}%)`}
-                      outerRadius={100}
-                      fill="#8884d8"
-                      dataKey="count"
-                    >
-                      {analytics.tagsByType.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={`hsl(${index * 45}, 70%, 60%)`} />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                  </PieChart>
-                </ResponsiveContainer>
+                <div className="h-64 sm:h-80">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={analytics.tagsByType}
+                        cx="50%"
+                        cy="50%"
+                        labelLine={false}
+                        label={({ type, percentage }) => `${type} (${percentage}%)`}
+                        outerRadius={100}
+                        fill="#8884d8"
+                        dataKey="count"
+                      >
+                        {analytics.tagsByType.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={`hsl(${index * 45}, 70%, 60%)`} />
+                        ))}
+                      </Pie>
+                      <Tooltip contentStyle={{ 
+                        background: 'hsl(var(--card))', 
+                        border: '1px solid hsl(var(--border))',
+                        fontSize: '12px'
+                      }} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
               </CardContent>
             </Card>
           </div>

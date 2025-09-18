@@ -294,23 +294,24 @@ export function PersonalTags({ className }: PersonalTagsProps) {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {/* Recent Tags */}
+          <div className="grid grid-cols-1 gap-3">
             {recentTags.map((tag) => (
               <div
                 key={tag.id}
-                className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 transition-colors"
+                className="flex flex-col sm:flex-row sm:items-center justify-between p-3 border rounded-lg hover:bg-muted/50 transition-colors gap-2 sm:gap-3"
               >
-                  <div className="flex items-center gap-3">
-                    <Tag variant="personal" size="sm">
-                      {tag.name}
-                    </Tag>
-                    <Badge variant="secondary" className="text-xs">
-                      {tag.usage_count}
-                    </Badge>
-                  </div>
-                  <span className="text-xs text-muted-foreground">
-                    {formatLastUsed(tag.last_used || tag.created_at)}
-                  </span>
+                <div className="flex items-center gap-3 min-w-0">
+                  <Tag variant="personal" size="sm">
+                    {tag.name}
+                  </Tag>
+                  <Badge variant="secondary" className="text-xs flex-shrink-0">
+                    {tag.usage_count}
+                  </Badge>
+                </div>
+                <span className="text-xs text-muted-foreground self-start sm:self-center">
+                  {formatLastUsed(tag.last_used || tag.created_at)}
+                </span>
               </div>
             ))}
           </div>
@@ -330,23 +331,24 @@ export function PersonalTags({ className }: PersonalTagsProps) {
             {mostUsedTags.map((tag, index) => (
               <div
                 key={tag.id}
-                className="flex items-center justify-between p-3 border rounded-lg"
+                className="flex flex-col sm:flex-row sm:items-center justify-between p-3 border rounded-lg gap-3"
               >
-                <div className="flex items-center gap-3">
-                  <div className="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs font-medium">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs font-medium flex-shrink-0">
                     {index + 1}
                   </div>
-                  <Tag variant="personal" size="default">
+                  <Tag variant="personal" size="default" className="min-w-0">
                     {tag.name}
                   </Tag>
                 </div>
-                  <div className="flex items-center gap-3">
-                    <Badge variant="outline">
-                      {tag.usage_count} uses
-                    </Badge>
+                <div className="flex items-center justify-between sm:justify-end gap-3">
+                  <Badge variant="outline" className="flex-shrink-0">
+                    {tag.usage_count} uses
+                  </Badge>
                   <Button
                     variant="ghost"
                     size="sm"
+                    className="flex-shrink-0"
                     onClick={() => {
                       if (!personalTags.includes(tag.name)) {
                         setPersonalTags([...personalTags, tag.name]);

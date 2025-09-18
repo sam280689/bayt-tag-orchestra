@@ -448,31 +448,31 @@ export function TeamManagement() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Team Management</h1>
-          <p className="text-muted-foreground">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="min-w-0">
+          <h1 className="text-xl sm:text-2xl font-semibold tracking-tight">Team Management</h1>
+          <p className="text-sm sm:text-base text-muted-foreground">
             Manage team members, roles, and permissions
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
           <Dialog open={isSettingsDialogOpen} onOpenChange={setIsSettingsDialogOpen}>
             <DialogTrigger asChild>
-              <Button variant="outline">
+              <Button variant="outline" className="w-full sm:w-auto">
                 <Settings className="h-4 w-4 mr-2" />
                 Settings
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-md">
+            <DialogContent className="mx-4 sm:mx-auto max-w-md">
               <DialogHeader>
                 <DialogTitle>Team Settings</DialogTitle>
                 <DialogDescription>
                   Configure team-wide tag management settings
                 </DialogDescription>
               </DialogHeader>
-              <div className="space-y-6 py-4">
+              <div className="space-y-6 py-4 max-h-[60vh] overflow-y-auto">
                 <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
+                  <div className="space-y-0.5 min-w-0 pr-3">
                     <Label className="text-sm font-medium">Require Approval</Label>
                     <p className="text-xs text-muted-foreground">New tags need admin approval</p>
                   </div>
