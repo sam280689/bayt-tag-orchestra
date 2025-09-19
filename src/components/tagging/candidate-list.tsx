@@ -9,6 +9,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { toast } from "@/hooks/use-toast"
+import { supabase } from "@/integrations/supabase/client"
+import { useAuth } from "@/hooks/useAuth"
 import { 
   Search, 
   Filter, 
@@ -35,60 +37,99 @@ interface Candidate {
   resume?: string
 }
 
-// Mock data for candidates
-const mockCandidates: Candidate[] = [
-  {
-    id: "1",
-    name: "Sarah Ahmed",
-    email: "sarah.ahmed@email.com",
-    phone: "+971 50 123 4567",
-    position: "Senior Product Manager",
-    location: "Dubai, UAE",
-    experience: "8+ years",
-    appliedDate: "2024-01-15",
-    tags: ["Product Management", "Leadership", "Top Talent"],
-  },
-  {
-    id: "2", 
-    name: "Mohamed Ali",
-    email: "mohamed.ali@email.com",
-    phone: "+966 55 234 5678",
-    position: "Full Stack Developer",
-    location: "Riyadh, Saudi Arabia",
-    experience: "5+ years",
-    appliedDate: "2024-01-14",
-    tags: ["React", "Node.js", "Remote Ready"],
-  },
-  {
-    id: "3",
-    name: "Fatima Hassan",
-    email: "fatima.hassan@email.com", 
-    phone: "+20 10 345 6789",
-    position: "UX Designer",
-    location: "Cairo, Egypt",
-    experience: "6+ years",
-    appliedDate: "2024-01-13",
-    tags: ["Design Systems", "Figma Expert"],
-  },
-]
-
-const mockSuggestions: TagSuggestion[] = [
-  { value: "Top Talent", label: "Top Talent", type: "team", count: 45 },
-  { value: "Leadership", label: "Leadership", type: "team", count: 32 },
-  { value: "Remote Ready", label: "Remote Ready", type: "team", count: 28 },
-  { value: "Product Management", label: "Product Management", type: "recent" },
-  { value: "React", label: "React", type: "recent" },
-  { value: "Figma Expert", label: "Figma Expert", type: "recent" },
-  { value: "Arabic Speaker", label: "Arabic Speaker", type: "global", count: 156 },
-  { value: "MBA", label: "MBA", type: "global", count: 89 },
-]
 
 export function CandidateList() {
-  const [candidates, setCandidates] = React.useState(mockCandidates)
+  const { user } = useAuth()
+  const [candidates, setCandidates] = React.useState<Candidate[]>([])
   const [selectedCandidates, setSelectedCandidates] = React.useState<string[]>([])
   const [bulkTags, setBulkTags] = React.useState<string[]>([])
   const [searchQuery, setSearchQuery] = React.useState("")
   const [filterByTag, setFilterByTag] = React.useState<string>("")
+  const [loading, setLoading] = React.useState(true)
+  const [tagSuggestions, setTagSuggestions] = React.useState<TagSuggestion[]>([])
+
+  React.useEffect(() => {
+    if (user) {
+      fetchCandidates()
+      fetchTagSuggestions()
+    }
+  }, [user])
+
+  const fetchCandidates = async () => {
+    try {
+      // Fetch candidates with their tags
+      const { data: candidatesData, error: candidatesError } = await supabase
+        .from('candidates')
+        .select('*')
+        .order('created_at', { ascending: false })
+
+      if (candidatesError) throw candidatesError
+
+      // Fetch candidate tags
+      const { data: candidateTagsData, error: tagsError } = await supabase
+        .from('candidate_tags')
+        .select('candidate_id, tags(name)')
+        
+      if (tagsError) throw tagsError
+
+      // Group tags by candidate
+      const candidateTagsMap: Record<string, string[]> = {}
+      candidateTagsData?.forEach(ct => {
+        if (!candidateTagsMap[ct.candidate_id]) {
+          candidateTagsMap[ct.candidate_id] = []
+        }
+        if (ct.tags?.name) {
+          candidateTagsMap[ct.candidate_id].push(ct.tags.name)
+        }
+      })
+
+      // Transform candidates data
+      const transformedCandidates: Candidate[] = candidatesData?.map(candidate => ({
+        id: candidate.id,
+        name: candidate.name,
+        email: candidate.email,
+        phone: candidate.profile_text?.match(/(\+?\d{1,4}[\s-]?\d{1,4}[\s-]?\d{1,4}[\s-]?\d{1,9})/)?.[0] || 'No phone',
+        position: candidate.profile_text?.split('\n')[0] || 'Position not specified',
+        location: candidate.profile_text?.match(/\b([A-Z][a-z]+,\s*[A-Z][a-z]+)\b/)?.[0] || 'Location not specified',
+        experience: candidate.profile_text?.match(/(\d+\+?\s*years?)/i)?.[0] || 'Experience not specified',
+        appliedDate: candidate.created_at.split('T')[0],
+        tags: candidateTagsMap[candidate.id] || []
+      })) || []
+
+      setCandidates(transformedCandidates)
+    } catch (error) {
+      console.error('Error fetching candidates:', error)
+      toast({
+        title: "Error",
+        description: "Failed to load candidates",
+        variant: "destructive"
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const fetchTagSuggestions = async () => {
+    try {
+      const { data: tags, error } = await supabase
+        .from('tags')
+        .select('name, type, usage_count')
+        .order('usage_count', { ascending: false })
+
+      if (error) throw error
+
+      const suggestions: TagSuggestion[] = tags?.map(tag => ({
+        value: tag.name,
+        label: tag.name,
+        type: tag.type === 'team' ? 'team' : tag.type === 'global' ? 'global' : 'recent',
+        count: tag.usage_count
+      })) || []
+
+      setTagSuggestions(suggestions)
+    } catch (error) {
+      console.error('Error fetching tag suggestions:', error)
+    }
+  }
 
   const handleSelectCandidate = (candidateId: string, checked: boolean) => {
     if (checked) {
@@ -106,32 +147,143 @@ export function CandidateList() {
     }
   }
 
-  const handleBulkTagging = () => {
-    if (selectedCandidates.length === 0 || bulkTags.length === 0) return
+  const handleBulkTagging = async () => {
+    if (selectedCandidates.length === 0 || bulkTags.length === 0 || !user) return
 
-    setCandidates(prev => prev.map(candidate => {
-      if (selectedCandidates.includes(candidate.id)) {
-        const newTags = [...new Set([...candidate.tags, ...bulkTags])]
-        return { ...candidate, tags: newTags }
+    try {
+      // First ensure all tags exist
+      for (const tagName of bulkTags) {
+        const { data: existingTag } = await supabase
+          .from('tags')
+          .select('id')
+          .eq('name', tagName)
+          .single()
+
+        if (!existingTag) {
+          await supabase
+            .from('tags')
+            .insert({
+              name: tagName,
+              type: 'team',
+              created_by: user.id
+            })
+        }
       }
-      return candidate
-    }))
 
-    toast({
-      title: "Tags Applied",
-      description: `Added ${bulkTags.join(", ")} to ${selectedCandidates.length} candidates`,
-    })
+      // Get tag IDs
+      const { data: tagIds } = await supabase
+        .from('tags')
+        .select('id, name')
+        .in('name', bulkTags)
+
+      if (tagIds) {
+        // Create candidate_tags relationships
+        const candidateTagInserts = []
+        for (const candidateId of selectedCandidates) {
+          for (const tag of tagIds) {
+            candidateTagInserts.push({
+              candidate_id: candidateId,
+              tag_id: tag.id,
+              created_by: user.id
+            })
+          }
+        }
+
+        await supabase
+          .from('candidate_tags')
+          .insert(candidateTagInserts)
+
+        // Update local state
+        setCandidates(prev => prev.map(candidate => {
+          if (selectedCandidates.includes(candidate.id)) {
+            const newTags = [...new Set([...candidate.tags, ...bulkTags])]
+            return { ...candidate, tags: newTags }
+          }
+          return candidate
+        }))
+
+        toast({
+          title: "Tags Applied",
+          description: `Added ${bulkTags.join(", ")} to ${selectedCandidates.length} candidates`,
+        })
+      }
+    } catch (error) {
+      console.error('Error applying bulk tags:', error)
+      toast({
+        title: "Error",
+        description: "Failed to apply tags",
+        variant: "destructive"
+      })
+    }
 
     setBulkTags([])
     setSelectedCandidates([])
   }
 
-  const handleIndividualTagChange = (candidateId: string, newTags: string[]) => {
-    setCandidates(prev => prev.map(candidate => 
-      candidate.id === candidateId 
-        ? { ...candidate, tags: newTags }
-        : candidate
-    ))
+  const handleIndividualTagChange = async (candidateId: string, newTags: string[]) => {
+    if (!user) return
+
+    try {
+      // Remove existing tags for this candidate
+      await supabase
+        .from('candidate_tags')
+        .delete()
+        .eq('candidate_id', candidateId)
+
+      // Add new tags
+      if (newTags.length > 0) {
+        // Ensure all tags exist
+        for (const tagName of newTags) {
+          const { data: existingTag } = await supabase
+            .from('tags')
+            .select('id')
+            .eq('name', tagName)
+            .single()
+
+          if (!existingTag) {
+            await supabase
+              .from('tags')
+              .insert({
+                name: tagName,
+                type: 'personal',
+                created_by: user.id
+              })
+          }
+        }
+
+        // Get tag IDs and create relationships
+        const { data: tagIds } = await supabase
+          .from('tags')
+          .select('id, name')
+          .in('name', newTags)
+
+        if (tagIds) {
+          const candidateTagInserts = tagIds.map(tag => ({
+            candidate_id: candidateId,
+            tag_id: tag.id,
+            created_by: user.id
+          }))
+
+          await supabase
+            .from('candidate_tags')
+            .insert(candidateTagInserts)
+        }
+      }
+
+      // Update local state
+      setCandidates(prev => prev.map(candidate => 
+        candidate.id === candidateId 
+          ? { ...candidate, tags: newTags }
+          : candidate
+      ))
+    } catch (error) {
+      console.error('Error updating candidate tags:', error)
+      toast({
+        title: "Error",
+        description: "Failed to update tags",
+        variant: "destructive"
+      })
+    }
   }
 
   const filteredCandidates = candidates.filter(candidate => {
@@ -146,6 +298,22 @@ export function CandidateList() {
   })
 
   const allTags = [...new Set(candidates.flatMap(c => c.tags))]
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="min-w-0">
+          <h1 className="text-xl sm:text-2xl font-semibold tracking-tight">Candidates</h1>
+          <p className="text-sm sm:text-base text-muted-foreground">Loading candidates...</p>
+        </div>
+        <div className="animate-pulse space-y-4">
+          {[...Array(3)].map((_, i) => (
+            <div key={i} className="h-32 bg-muted rounded-lg"></div>
+          ))}
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -204,7 +372,7 @@ export function CandidateList() {
                 <TagInput
                   value={bulkTags}
                   onChange={setBulkTags}
-                  suggestions={mockSuggestions}
+                  suggestions={tagSuggestions}
                   placeholder="Add tags to selected candidates..."
                   maxTags={5}
                 />
@@ -299,7 +467,7 @@ export function CandidateList() {
                       <TagInput
                         value={candidate.tags}
                         onChange={(tags) => handleIndividualTagChange(candidate.id, tags)}
-                        suggestions={mockSuggestions}
+                        suggestions={tagSuggestions}
                         placeholder="Add tags..."
                         maxTags={8}
                       />

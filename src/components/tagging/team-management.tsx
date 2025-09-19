@@ -77,99 +77,17 @@ interface TeamSettings {
   maxTagsPerUser: number
 }
 
-// Mock team data
-const mockTeamMembers: TeamMember[] = [
-  {
-    id: "1",
-    name: "Sarah Ahmed",
-    email: "sarah.ahmed@company.com",
-    role: "admin",
-    avatar: "/avatars/sarah.jpg",
-    lastActive: "2024-01-20T10:30:00Z",
-    permissions: {
-      canCreateTags: true,
-      canEditTags: true,
-      canDeleteTags: true,
-      canManageTeam: true,
-      canViewAnalytics: true,
-    },
-    tagStats: {
-      created: 45,
-      used: 234,
-      shared: 12
-    }
-  },
-  {
-    id: "2", 
-    name: "Ahmed Ali",
-    email: "ahmed.ali@company.com",
-    role: "editor",
-    lastActive: "2024-01-19T15:45:00Z",
-    permissions: {
-      canCreateTags: true,
-      canEditTags: true,
-      canDeleteTags: false,
-      canManageTeam: false,
-      canViewAnalytics: true,
-    },
-    tagStats: {
-      created: 23,
-      used: 156,
-      shared: 8
-    }
-  },
-  {
-    id: "3",
-    name: "Fatima Hassan",
-    email: "fatima.hassan@company.com", 
-    role: "editor",
-    lastActive: "2024-01-18T09:15:00Z",
-    permissions: {
-      canCreateTags: true,
-      canEditTags: true,
-      canDeleteTags: false,
-      canManageTeam: false,
-      canViewAnalytics: true,
-    },
-    tagStats: {
-      created: 31,
-      used: 189,
-      shared: 15
-    }
-  },
-  {
-    id: "4",
-    name: "John Doe",
-    email: "john.doe@company.com",
-    role: "viewer",
-    lastActive: "2024-01-15T14:20:00Z",
-    permissions: {
-      canCreateTags: false,
-      canEditTags: false,
-      canDeleteTags: false,
-      canManageTeam: false,
-      canViewAnalytics: false,
-    },
-    tagStats: {
-      created: 0,
-      used: 67,
-      shared: 0
-    }
-  }
-]
-
-const mockTeamSettings: TeamSettings = {
-  requireApproval: true,
-  allowPublicTags: false,
-  autoSuggestSimilar: true,
-  enforceNamingConvention: false,
-  maxTagsPerUser: 50
-}
 
 export function TeamManagement() {
   const { user } = useAuth()
   const [members, setMembers] = React.useState<TeamMember[]>([])
-  const [settings, setSettings] = React.useState<TeamSettings>(mockTeamSettings)
+  const [settings, setSettings] = React.useState<TeamSettings>({
+    requireApproval: true,
+    allowPublicTags: false,
+    autoSuggestSimilar: true,
+    enforceNamingConvention: false,
+    maxTagsPerUser: 50
+  })
   const [searchQuery, setSearchQuery] = React.useState("")
   const [roleFilter, setRoleFilter] = React.useState<string>("all")
   const [loading, setLoading] = React.useState(true)
