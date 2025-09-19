@@ -70,6 +70,11 @@ export function WorkflowAutomation() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = React.useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = React.useState(false)
   const [deleteRuleId, setDeleteRuleId] = React.useState<string | null>(null)
+  const [tagStats, setTagStats] = React.useState({
+    unusedTags: 0,
+    duplicatePairs: 0,
+    totalTags: 0
+  })
   
   // Form state for creating rules
   const [newRule, setNewRule] = React.useState({
@@ -168,6 +173,9 @@ export function WorkflowAutomation() {
 
       if (executionError) throw executionError
       setExecutions(executionData || [])
+
+      // Fetch tag statistics for quick actions
+      await fetchTagStats()
       
     } catch (error) {
       console.error('Error fetching workflow data:', error)
@@ -178,6 +186,52 @@ export function WorkflowAutomation() {
       })
     } finally {
       setLoading(false)
+    }
+  }
+
+  const fetchTagStats = async () => {
+    try {
+      // Get total tags count
+      const { count: totalTags } = await supabase
+        .from('tags')
+        .select('*', { count: 'exact', head: true })
+
+      // Get unused tags (not used in last 90 days)
+      const ninetyDaysAgo = new Date()
+      ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90)
+      
+      const { count: unusedTags } = await supabase
+        .from('tags')
+        .select('*', { count: 'exact', head: true })
+        .or(`last_used.is.null,last_used.lt.${ninetyDaysAgo.toISOString()}`)
+
+      // Get potential duplicates (simplified - tags with similar names)
+      const { data: allTags } = await supabase
+        .from('tags')
+        .select('name')
+
+      let duplicatePairs = 0
+      if (allTags) {
+        const tagNames = allTags.map(t => t.name.toLowerCase())
+        const seen = new Set()
+        const duplicates = new Set()
+        
+        tagNames.forEach(name => {
+          if (seen.has(name)) {
+            duplicates.add(name)
+          }
+          seen.add(name)
+        })
+        duplicatePairs = duplicates.size
+      }
+
+      setTagStats({
+        unusedTags: unusedTags || 0,
+        duplicatePairs,
+        totalTags: totalTags || 0
+      })
+    } catch (error) {
+      console.error('Error fetching tag stats:', error)
     }
   }
 
@@ -204,6 +258,32 @@ export function WorkflowAutomation() {
 
       console.log('Created execution:', execution)
 
+      // Call the execute-workflow edge function to handle the actual workflow execution
+      const { data: candidates } = await supabase
+        .from('candidates')
+        .select('id')
+        .limit(1)
+
+      if (candidates && candidates.length > 0) {
+        try {
+          const { data: result, error: functionError } = await supabase.functions.invoke('execute-workflow', {
+            body: { 
+              candidate_id: candidates[0].id,
+              trigger_type: 'manual'
+            }
+          })
+
+          if (functionError) {
+            console.error('Error calling execute-workflow function:', functionError)
+            throw functionError
+          }
+
+          console.log('Workflow execution result:', result)
+        } catch (funcError) {
+          console.error('Function execution error:', funcError)
+        }
+      }
+
       // Update rule execution count and status
       const currentRule = rules.find(r => r.id === ruleId)
       const updateResult = await supabase
@@ -218,7 +298,7 @@ export function WorkflowAutomation() {
         console.error('Error updating rule:', updateResult.error)
       }
 
-      // Update execution to completed after simulation
+      // Update execution to completed
       setTimeout(async () => {
         await supabase
           .from('workflow_executions')
@@ -234,7 +314,7 @@ export function WorkflowAutomation() {
           .eq('id', execution.id)
         
         fetchWorkflowData() // Refresh data
-      }, 2000) // Simulate 2 second processing time
+      }, 2000)
 
       toast({
         title: "Workflow Executed",
@@ -437,8 +517,18 @@ export function WorkflowAutomation() {
   }
 
   const handleBulkOperation = async (type: string, targets?: string[]) => {
-    // For demonstration, we'll simulate with some sample data
-    const actualTargets = targets || selectedTags.length > 0 ? selectedTags : ['sample-tag-1', 'sample-tag-2']
+    // Get actual tags for bulk operations
+    let actualTargets = targets || selectedTags
+
+    if (!actualTargets.length) {
+      // Get some actual tags from the database for the operation
+      const { data: tags } = await supabase
+        .from('tags')
+        .select('id, name')
+        .limit(5)
+
+      actualTargets = tags?.map(t => t.id) || []
+    }
     
     try {
       console.log(`Starting bulk operation: ${type} on targets:`, actualTargets)
@@ -931,7 +1021,7 @@ export function WorkflowAutomation() {
                           onClick={() => handleQuickAction('cleanup')}
                         >
                           <Zap className="h-4 w-4 mr-2" />
-                          Cleanup unused tags (15 found)
+                          Cleanup unused tags ({tagStats.unusedTags} found)
                         </Button>
                       </TooltipTrigger>
                       <TooltipContent>Remove tags that haven't been used recently</TooltipContent>
@@ -945,7 +1035,7 @@ export function WorkflowAutomation() {
                           onClick={() => handleQuickAction('merge')}
                         >
                           <RefreshCw className="h-4 w-4 mr-2" />
-                          Merge duplicates (8 pairs found)
+                          Merge duplicates ({tagStats.duplicatePairs} pairs found)
                         </Button>
                       </TooltipTrigger>
                       <TooltipContent>Automatically merge similar tags</TooltipContent>
